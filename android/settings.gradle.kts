@@ -10,15 +10,17 @@ pluginManagement {
     includeBuild("$flutterSdkPath/packages/flutter_tools/gradle")
 
     repositories {
-        google()
-        mavenCentral()
         gradlePluginPortal()
+        google()
+        mavenCentral()        
+        maven("https://maven.pkg.jetbrains.space/public/p/kotlinx-html/maven")
     }
 
     plugins {
         id("com.android.application") version "8.4.0" apply false
         // id("org.jetbrains.kotlin.android") version "1.9.24" apply false
-        id("kotlin-android") version "1.9.24" apply false
+        // id("kotlin-android") version "1.9.24" apply false
+        id("org.jetbrains.kotlin.android") version "1.9.24" apply false
         id("com.google.gms.google-services") version "4.4.1" apply false
         id("dev.flutter.flutter-plugin-loader") version "1.0.0" apply false
         id("dev.flutter.flutter-gradle-plugin") version "1.0.0" apply false
