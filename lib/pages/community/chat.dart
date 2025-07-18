@@ -208,7 +208,7 @@ class _ChatPageState extends State<ChatPage> {
                 AppBar(
                   title: const Text('Community Members'),
                   leading: IconButton(
-                    icon: const Icon(Icons.arrow_forward_ios_rounded),
+                    icon: const Icon(Icons.arrow_back_ios_rounded),
                     onPressed: () => setState(() => _showSidebar = false),
                   ),
                 ),
@@ -269,7 +269,7 @@ class _ChatPageState extends State<ChatPage> {
                 ),
                 actions: [
                   IconButton(
-                    icon: const Icon(Icons.arrow_back_ios_rounded),
+                    icon: const Icon(Icons.arrow_forward_ios_rounded),
                     onPressed: () => setState(() => _showSidebar = true),
                   ),
                 ],

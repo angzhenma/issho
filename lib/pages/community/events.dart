@@ -1,17 +1,22 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:issho/pages/community/create_event.dart';
+import 'package:issho/pages/community/event_list.dart';
 import 'package:issho/widgets/event_card.dart';
 
 class EventPage extends StatefulWidget {
   final String communityId;
   final String currentUserId;
+  final String communityName;
 
   const EventPage({
     super.key,
     required this.communityId,
-    required this.currentUserId, required communityName,
+    required this.currentUserId,
+    required this.communityName,
   });
 
   @override
@@ -25,31 +30,34 @@ class _EventPageState extends State<EventPage> {
   @override
   void initState() {
     super.initState();
-    _loadCommunityName();
+    _communityName = widget.communityName;
   }
 
-  void _loadCommunityName() async {
-    final snapshot = await FirebaseFirestore.instance
-        .collection('communities')
-        .doc(widget.communityId)
-        .get();
-    if (snapshot.exists) {
-      setState(() {
-        _communityName = snapshot.data()?['name'] ?? widget.communityId;
-      });
-    }
-  }
+  // void _loadCommunityName() async {
+  //   final snapshot = await FirebaseFirestore.instance
+  //       .collection('communities')
+  //       .doc(widget.communityId)
+  //       .get();
+  //   if (snapshot.exists) {
+  //     setState(() {
+  //       _communityName = snapshot.data()?['name'] ?? widget.communityId;
+  //     });
+  //   }
+  // }
 
   @override
   Widget build(BuildContext context) {
     final eventsQuery = FirebaseFirestore.instance
+        .collection('communities')
+        .doc(widget.communityId)
         .collection('events')
-        .where('communityId', isEqualTo: widget.communityId)
-        .orderBy('datetime');
+        .orderBy('startTime');
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_communityName.isNotEmpty ? _communityName : 'Community Events'),
+        title: Text(
+          _communityName.isNotEmpty ? _communityName : 'Community Events',
+        ),
         actions: [
           FutureBuilder<DocumentSnapshot>(
             future: FirebaseFirestore.instance
@@ -62,15 +70,30 @@ class _EventPageState extends State<EventPage> {
               }
               if (snapshot.hasData && snapshot.data != null) {
                 final data = snapshot.data!.data() as Map<String, dynamic>;
-                final isAdmin = (data['admins'] as List).contains(widget.currentUserId);
+                final isAdmin = (data['admins'] as List).contains(
+                  widget.currentUserId,
+                );
                 if (isAdmin) {
+                  final name = data['name'] ?? '';
+                  final location = data['location'] ?? {};
+
+                  final city = location['city'] ?? '';
+                  final state = location['state'] ?? '';
+                  final country = location['country'] ?? '';
+
                   return IconButton(
                     icon: const Icon(Icons.add_rounded),
                     onPressed: () {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => CreateEventPage(communityId: widget.communityId),
+                          builder: (_) => CreateEventPage(
+                            communityId: widget.communityId,
+                            communityName: name,
+                            communityCity: city,
+                            communityState: state,
+                            communityCountry: country,
+                          ),
                         ),
                       );
                     },
@@ -97,31 +120,57 @@ class _EventPageState extends State<EventPage> {
                   return const Center(child: Text("No events yet."));
                 }
 
-                final filteredEvents = snapshot.data!.docs.where(_applyFilter).toList();
+                final filteredEvents = snapshot.data!.docs
+                    .where(_applyFilter)
+                    .toList();
 
                 if (filteredEvents.isEmpty) {
-                  return const Center(child: Text("No events match this filter."));
+                  return const Center(
+                    child: Text("No events match this filter."),
+                  );
                 }
 
                 return ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
                   itemCount: filteredEvents.length,
                   itemBuilder: (context, index) {
                     final doc = filteredEvents[index];
                     final data = doc.data() as Map<String, dynamic>;
-                    final date = (data['datetime'] as Timestamp).toDate();
+                    final startTime = (data['startTime'] as Timestamp).toDate();
+                    final locationMap =
+                        data['location'] as Map<String, dynamic>?;
+                    final entryFeeMap =
+                        data['entryFee'] as Map<String, dynamic>?;
 
                     return EventCard(
                       title: data['title'] ?? 'Untitled',
                       description: data['description'] ?? '',
-                      datetime: date,
-                      location: data['location'] ?? 'TBD',
+                      datetime: startTime,
+                      venue: data['venue'] ?? 'TBD',
                       attendeeCount: (data['attendees'] as List).length,
                       maxAttendees: data['maxAttendees'] ?? 999,
-                      isUserGoing: (data['attendees'] as List).contains(widget.currentUserId),
+                      isUserGoing: (data['attendees'] as List).contains(
+                        widget.currentUserId,
+                      ),
+                      entryFee: entryFeeMap != null && entryFeeMap['amount'] > 0
+                          ? "${entryFeeMap['currency']} ${entryFeeMap['amount']}"
+                          : "Free",
                       onJoin: () => _toggleRSVP(doc.id, true),
                       onUnjoin: () => _toggleRSVP(doc.id, false),
-                      onTap: () {},
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => EventListPage(
+                              communityId: widget.communityId,
+                              eventId: doc.id,
+                            ),
+                          ),
+                        );
+                      },
                     );
                   },
                 );
@@ -159,7 +208,7 @@ class _EventPageState extends State<EventPage> {
 
   bool _applyFilter(QueryDocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
-    final date = (data['datetime'] as Timestamp).toDate();
+    final date = (data['startTime'] as Timestamp).toDate();
 
     switch (_filter) {
       case 'This Week':
@@ -175,12 +224,52 @@ class _EventPageState extends State<EventPage> {
   }
 
   Future<void> _toggleRSVP(String eventId, bool going) async {
-    final eventRef = FirebaseFirestore.instance.collection('events').doc(eventId);
+    final eventRef = FirebaseFirestore.instance
+        .collection('communities')
+        .doc(widget.communityId)
+        .collection('events')
+        .doc(eventId);
+
+    final userRef = FirebaseFirestore.instance
+        .collection('users')
+        .doc(widget.currentUserId);
+    final userSnapshot = await userRef.get();
+    final displayName = userSnapshot.data()?['displayName'] ?? 'Someone';
+
+    final eventSnapshot = await eventRef.get();
+    final eventData = eventSnapshot.data();
+    final title = eventData?['title'] ?? 'Untitled';
+    final communityId = widget.communityId;
+
+    final communityRef = FirebaseFirestore.instance
+        .collection('communities')
+        .doc(communityId);
+    final communitySnapshot = await communityRef.get();
+    final List adminIds = communitySnapshot.data()?['admins'] ?? [];
 
     await eventRef.update({
       'attendees': going
           ? FieldValue.arrayUnion([widget.currentUserId])
           : FieldValue.arrayRemove([widget.currentUserId]),
     });
+
+    if (going) {
+      for (final adminId in adminIds) {
+        if (adminId != widget.currentUserId) {
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(adminId)
+              .collection('notifications')
+              .add({
+                'type': 'event_joined',
+                'message': '$displayName has joined the event "$title".',
+                'timestamp': FieldValue.serverTimestamp(),
+                'eventId': eventId,
+                'communityId': communityId,
+                'fromUserId': widget.currentUserId,
+              });
+        }
+      }
+    }
   }
 }

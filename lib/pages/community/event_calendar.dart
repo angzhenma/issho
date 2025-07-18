@@ -2,127 +2,160 @@
 
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:syncfusion_flutter_calendar/calendar.dart';
+import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart';
 
-class CalendarPage extends StatelessWidget {
-  const CalendarPage({super.key});
+class EventCalendarPage extends StatefulWidget {
+  final String userId;
+
+  const EventCalendarPage({super.key, required this.userId});
+
+  @override
+  State<EventCalendarPage> createState() => _EventCalendarPageState();
+}
+
+class _EventCalendarPageState extends State<EventCalendarPage> {
+  DateTime _focusedDay = DateTime.now();
+  DateTime? _selectedDay;
+  Map<DateTime, List<Map<String, dynamic>>> _events = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchEvents();
+  }
+
+  Future<void> _fetchEvents() async {
+    final snapshot = await FirebaseFirestore.instance
+        .collectionGroup('events')
+        .get();
+    final events = <DateTime, List<Map<String, dynamic>>>{};
+
+    for (final doc in snapshot.docs) {
+      final data = doc.data();
+      final start = (data['startTime'] as Timestamp).toDate();
+      final day = DateTime(start.year, start.month, start.day);
+      data['eventId'] = doc.id;
+      data['communityId'] = doc.reference.parent.parent?.id;
+      events.putIfAbsent(day, () => []).add(data);
+    }
+
+    setState(() {
+      _events = events;
+    });
+  }
+
+  List<Map<String, dynamic>> _getEventsForDay(DateTime day) {
+    return _events[DateTime(day.year, day.month, day.day)] ?? [];
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('My Calendar'), centerTitle: true),
-      body: FutureBuilder<List<Appointment>>(
-        future: _loadAppointments(),
-        builder: (context, snapshot) {
-          if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          return Padding(
-            padding: const EdgeInsets.all(8),
-            child: Card(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              elevation: 2,
-              child: SfCalendar(
-                view: CalendarView.month,
-                firstDayOfWeek: 1,
-                dataSource: MeetingDataSource(snapshot.data!),
-                todayHighlightColor: Theme.of(context).colorScheme.primary,
-                backgroundColor: Theme.of(context).colorScheme.surface,
-                monthViewSettings: MonthViewSettings(
-                  appointmentDisplayMode:
-                      MonthAppointmentDisplayMode.appointment,
-                  agendaViewHeight: 200,
-                  agendaItemHeight: 48,
-                  appointmentDisplayCount: 3,
-                ),
-                headerStyle: CalendarHeaderStyle(
-                  textAlign: TextAlign.center,
-                  textStyle: Theme.of(context).textTheme.titleMedium,
-                ),
-                viewHeaderStyle: ViewHeaderStyle(
-                  dayTextStyle: Theme.of(context).textTheme.bodyMedium!,
-                ),
-                todayTextStyle: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+      appBar: AppBar(
+        automaticallyImplyLeading: false,
+        title: const Text('Event Calendar'),
+      ),
+      body: Column(
+        children: [
+          TableCalendar(
+            focusedDay: _focusedDay,
+            firstDay: DateTime.utc(2020, 1, 1),
+            lastDay: DateTime.utc(2100, 12, 31),
+            selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
+            onDaySelected: (selectedDay, focusedDay) {
+              setState(() {
+                _selectedDay = selectedDay;
+                _focusedDay = focusedDay;
+              });
+            },
+            eventLoader: _getEventsForDay,
+            calendarStyle: CalendarStyle(
+              markerDecoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary,
+                shape: BoxShape.circle,
               ),
             ),
-          );
-        },
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: _selectedDay == null
+                ? const Center(child: Text("Select a date"))
+                : ListView(
+                    children: _getEventsForDay(_selectedDay!).map((event) {
+                      final start = (event['startTime'] as Timestamp).toDate();
+                      final end = (event['endTime'] as Timestamp).toDate();
+                      final fee = event['entryFee'] ?? '';
+                      final location =
+                          [
+                                event['venue'],
+                                event['city'],
+                                event['state'],
+                                event['country'],
+                              ]
+                              .where(
+                                (s) => s != null && s.toString().isNotEmpty,
+                              )
+                              .join(', ');
+
+                      return Card(
+                        margin: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        child: ListTile(
+                          title: Text(event['title'] ?? 'Untitled'),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (event['communityName'] != null)
+                                Text('Community: ${event['communityName']}'),
+                              if (event['description'] != null)
+                                Text(event['description']),
+                              Text(
+                                'Time: ${DateFormat.jm().format(start)} - ${DateFormat.jm().format(end)}',
+                              ),
+                              Text('Entry Fee: ${formatEntryFee(fee)}'),
+                              Text('Location: $location'),
+                              InkWell(
+                                onTap: () {
+                                  Navigator.pushNamed(
+                                    context,
+                                    '/event_list',
+                                    arguments: {
+                                      'communityId': event['communityId'],
+                                      'eventId': event['eventId'],
+                                    },
+                                  );
+                                },
+                                child: Text(
+                                  'Attendees: ${(event['attendees'] as List?)?.length ?? 0}',
+                                  style: TextStyle(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.primary,
+                                    decoration: TextDecoration.underline,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+          ),
+        ],
       ),
     );
   }
 
-  Future<List<Appointment>> _loadAppointments() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return [];
-
-    final events = <Appointment>[];
-    final userDoc = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .get();
-    final userCountry = userDoc['location']['country'];
-    final userState = userDoc['location']['state'];
-
-    final userCommunityDocs = await FirebaseFirestore.instance
-        .collection('communities')
-        .where('members', arrayContains: user.uid)
-        .get();
-    final userCommunityIds = userCommunityDocs.docs
-        .map((doc) => doc.id)
-        .toSet();
-
-    final allCommunities = await FirebaseFirestore.instance
-        .collection('communities')
-        .get();
-    final Map<String, dynamic> communityLocationMap = {
-      for (var c in allCommunities.docs) c.id: c.data(),
-    };
-
-    final allEventsSnap = await FirebaseFirestore.instance
-        .collection('events')
-        .get();
-
-    for (var doc in allEventsSnap.docs) {
-      final data = doc.data();
-      final date = (data['datetime'] as Timestamp).toDate();
-      final communityId = data['communityId'];
-
-      if (communityId == null) continue; // skip broken events
-
-      final isUserMember = userCommunityIds.contains(communityId);
-      final communityData = communityLocationMap[communityId];
-      final isRecommended =
-          !isUserMember &&
-          communityData?['location']['country'] == userCountry &&
-          communityData?['location']['state'] == userState;
-
-      events.add(
-        Appointment(
-          startTime: date,
-          endTime: date.add(const Duration(hours: 2)),
-          subject: data['title'] ?? 'Untitled',
-          color: isUserMember
-              ? Colors.blue.withOpacity(0.7)
-              : isRecommended
-              ? Colors.orangeAccent.withOpacity(0.6)
-              : Colors.grey.shade400,
-        ),
-      );
-    }
-
-    return events;
-  }
-}
-
-class MeetingDataSource extends CalendarDataSource {
-  MeetingDataSource(List<Appointment> source) {
-    appointments = source;
+  String formatEntryFee(String fee) {
+    final parts = fee.trim().split(' ');
+    if (parts.length != 2) return 'Free!';
+    final currency = parts[0];
+    final amount = double.tryParse(parts[1].replaceAll(',', ''));
+    if (amount == null || amount == 0) return 'Free!';
+    return '$currency ${amount.toStringAsFixed(2)}';
   }
 }

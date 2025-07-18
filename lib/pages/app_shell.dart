@@ -24,12 +24,15 @@ class _AppShellState extends State<AppShell> {
     'Settings',
   ];
 
-  final List<Widget> _pages = const [
-    CommunitiesPage(),
-    CalendarPage(),
-    NotificationsPage(),
-    SettingsPage(),
-  ];
+  List<Widget> get _pages {
+    final userId = FirebaseAuth.instance.currentUser?.uid ?? '';
+    return [
+      const CommunitiesPage(),
+      EventCalendarPage(userId: userId),
+      const NotificationsPage(),
+      const SettingsPage(),
+    ];
+  }
 
   void _onTabTapped(int index) {
     setState(() => _selectedIndex = index);
@@ -57,6 +60,24 @@ class _AppShellState extends State<AppShell> {
         ),
         centerTitle: true,
         automaticallyImplyLeading: false,
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 12.0),
+            child: GestureDetector(
+              onTap: () {
+                Navigator.pushNamed(context, '/profile');
+              },
+              child: CircleAvatar(
+                radius: 18,
+                backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                child: Icon(
+                  Icons.person_rounded,
+                  color: Theme.of(context).colorScheme.onPrimaryContainer,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
       body: _pages[_selectedIndex],
       floatingActionButton: _selectedIndex == 0
