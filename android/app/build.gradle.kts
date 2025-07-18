@@ -51,6 +51,6 @@ dependencies { // this dependencies block is needed so that Gradel can fetch the
     implementation("com.google.firebase:firebase-auth") // ✅ <-- No longer requires explicit version numbers as the Firebase BoM will manage compatible versions
     // implementation("com.google.firebase:firebase-firestore:25.0.0")
     implementation("com.google.firebase:firebase-firestore")
-    implementation("com.google.android.gms:play-services-auth:21.0.0")
+    implementation("com.google.android.gms:play-services-auth")
 }
 
