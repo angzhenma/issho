@@ -5,7 +5,7 @@ buildscript {
         gradlePluginPortal() // ✅ Optional
     }
     dependencies {
-        classpath("com.google.gms:google-services:4.4.1") // ✅ Firebase plugin
+        classpath("com.google.gms:google-services:4.4.2") // ✅ Firebase plugin. Version numbers should always be specified for plugins added here.
     }
 }
 
