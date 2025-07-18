@@ -1,11 +1,11 @@
 buildscript {
     repositories {
-        google()           // ✅ Needed for Google Services classpath
-        mavenCentral()     // ✅ Optional but safe to include
-        gradlePluginPortal() // ✅ Optional
+        google()
+        mavenCentral()
+        gradlePluginPortal()
     }
     dependencies {
-        classpath("com.google.gms:google-services:4.4.2") // ✅ Firebase plugin. Version numbers should always be specified for plugins added here.
+        classpath("com.google.gms:google-services:4.4.2")
     }
 }
 
