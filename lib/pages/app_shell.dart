@@ -62,29 +62,33 @@ class _AppShellState extends State<AppShell> {
         ),
         centerTitle: true,
         automaticallyImplyLeading: false,
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 12.0),
-            child: GestureDetector(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => ProfilePage(userId: FirebaseAuth.instance.currentUser!.uid),
+        actions: _selectedIndex != 3
+            ? [
+                Padding(
+                  padding: const EdgeInsets.only(right: 12.0),
+                  child: GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ProfilePage(
+                            userId: FirebaseAuth.instance.currentUser!.uid,
+                          ),
+                        ),
+                      );
+                    },
+                    child: CircleAvatar(
+                      radius: 18,
+                      backgroundColor: theme.colorScheme.primaryContainer,
+                      child: Icon(
+                        Icons.person_rounded,
+                        color: theme.colorScheme.onPrimaryContainer,
+                      ),
+                    ),
                   ),
-                );
-              },
-              child: CircleAvatar(
-                radius: 18,
-                backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-                child: Icon(
-                  Icons.person_rounded,
-                  color: Theme.of(context).colorScheme.onPrimaryContainer,
                 ),
-              ),
-            ),
-          ),
-        ],
+              ]
+            : null,
       ),
       body: _pages[_selectedIndex],
       floatingActionButton: _selectedIndex == 0

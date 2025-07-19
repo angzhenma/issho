@@ -109,11 +109,11 @@ class _EventListPageState extends State<EventListPage> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     if (attendee['isAdmin'])
-                      const Icon(Icons.shield_rounded, color: Colors.blue),
+                      const Icon(Icons.shield_rounded, color: Colors.pinkAccent),
                     if (attendee['isPro'])
                       const Padding(
                         padding: EdgeInsets.only(left: 4.0),
-                        child: Icon(Icons.stars_rounded, color: Colors.orange),
+                        child: Icon(Icons.star_rounded, color: Colors.deepPurpleAccent),
                       ),
                   ],
                 ),

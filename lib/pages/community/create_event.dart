@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:issho/models/button.dart';
-import 'package:uuid/uuid.dart';
 
 class CreateEventPage extends StatefulWidget {
   final String communityId;
@@ -28,7 +27,6 @@ class CreateEventPage extends StatefulWidget {
 
 class _CreateEventPageState extends State<CreateEventPage> {
   final _formKey = GlobalKey<FormState>();
-  final _uuid = const Uuid();
 
   String _title = '';
   String _description = '';
@@ -71,15 +69,12 @@ class _CreateEventPageState extends State<CreateEventPage> {
 
     try {
       final currentUser = FirebaseAuth.instance.currentUser;
-      final eventId = _uuid.v4();
 
       final eventData = {
-        'eventId': eventId,
-        'communityId': widget.communityId,
         'title': _title.trim(),
         'description': _description.trim(),
-        'startDateTime': _startDateTime,
-        'endDateTime': _endDateTime,
+        'startTime': _startDateTime,
+        'endTime': _endDateTime,
         'location': {
           'city': _cityController.text.trim(),
           'state': _stateController.text.trim(),
@@ -90,19 +85,16 @@ class _CreateEventPageState extends State<CreateEventPage> {
           'amount': _entryFeeAmount,
         },
         'attendees': [],
-        'createdBy': currentUser?.uid,
-        'createdAt': Timestamp.now(),
+        'creatorId': currentUser?.uid,
         'maxAttendees': _maxAttendees,
-        'confirmedAttendees': [],
         'venue': _venue.trim(),
       };
 
-      await FirebaseFirestore.instance
+      final eventRef = await FirebaseFirestore.instance
           .collection('communities')
           .doc(widget.communityId)
           .collection('events')
-          .doc(eventId)
-          .set(eventData);
+          .add(eventData);
 
       final communityDoc = await FirebaseFirestore.instance
           .collection('communities')
@@ -116,18 +108,17 @@ class _CreateEventPageState extends State<CreateEventPage> {
             .collection('users')
             .doc(memberId)
             .collection('notifications')
-            .doc(); // Firestore auto-generates the notificationId
+            .doc();
 
         batch.set(notifRef, {
           'message':
               'A new event "${_title.trim()}" has been created in ${widget.communityName}!',
           'type': 'new_event',
           'communityId': widget.communityId,
-          'eventId': eventId,
+          'eventId': eventRef.id,
           'timestamp': Timestamp.now(),
         });
       }
-
       await batch.commit();
 
       if (mounted) Navigator.pop(context);
@@ -188,7 +179,6 @@ class _CreateEventPageState extends State<CreateEventPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Section: Event Details
               const Text(
                 'Event Details',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
@@ -205,9 +195,8 @@ class _CreateEventPageState extends State<CreateEventPage> {
                 onSaved: (val) => _description = val ?? '',
                 maxLines: 3,
               ),
-
               const SizedBox(height: 24),
-              // Section: Location
+
               const Text(
                 'Location',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
@@ -232,8 +221,8 @@ class _CreateEventPageState extends State<CreateEventPage> {
                 controller: _countryController,
                 decoration: const InputDecoration(labelText: 'Country'),
               ),
-
               const SizedBox(height: 24),
+
               const Text(
                 'Entry Fee',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
@@ -259,11 +248,18 @@ class _CreateEventPageState extends State<CreateEventPage> {
                   ),
                 ],
               ),
-
               const SizedBox(height: 24),
+
               const Text(
                 'Timing & Capacity',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              TextFormField(
+                decoration: const InputDecoration(
+                  labelText: 'Max Attendees (0 = unlimited)',
+                ),
+                keyboardType: TextInputType.number,
+                onSaved: (val) => _maxAttendees = int.tryParse(val ?? '0') ?? 0,
               ),
               const SizedBox(height: 12),
               SizedBox(
@@ -280,23 +276,15 @@ class _CreateEventPageState extends State<CreateEventPage> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
-                  icon: const Icon(Icons.schedule),
+                  icon: const Icon(Icons.schedule_rounded),
                   label: Text(
                     'End: ${_endDateTime.toString().substring(0, 16)}',
                   ),
                   onPressed: () => _pickDateTime(isStart: false),
                 ),
               ),
-              const SizedBox(height: 12),
-              TextFormField(
-                decoration: const InputDecoration(
-                  labelText: 'Max Attendees (0 = unlimited)',
-                ),
-                keyboardType: TextInputType.number,
-                onSaved: (val) => _maxAttendees = int.tryParse(val ?? '0') ?? 0,
-              ),
-
               const SizedBox(height: 24),
+
               AppButton(
                 label: 'Create Event',
                 icon: Icons.check_circle_outline_rounded,

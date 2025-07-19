@@ -17,10 +17,6 @@ class SettingsPage extends StatelessWidget {
     final isDark = themeNotifier.themeMode == ThemeMode.dark;
 
     return Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        title: const Text('Settings'),
-      ),
       body: ListView(
         padding: const EdgeInsets.symmetric(vertical: 12),
         children: [
@@ -51,7 +47,9 @@ class SettingsPage extends StatelessWidget {
           SwitchListTile(
             value: isDark,
             onChanged: (val) {
-              themeNotifier.setThemeMode(val ? ThemeMode.dark : ThemeMode.light);
+              themeNotifier.setThemeMode(
+                val ? ThemeMode.dark : ThemeMode.light,
+              );
             },
             title: const Text('Dark Mode'),
             secondary: Icon(isDark ? Icons.dark_mode : Icons.light_mode),
@@ -67,7 +65,8 @@ class SettingsPage extends StatelessWidget {
                 showDialog(
                   context: context,
                   barrierDismissible: false,
-                  builder: (_) => const Center(child: LinearProgressIndicator(),)
+                  builder: (_) =>
+                      const Center(child: LinearProgressIndicator()),
                 );
                 await FirebaseAuth.instance.signOut();
                 if (context.mounted) {
@@ -95,4 +94,3 @@ class SettingsPage extends StatelessWidget {
     );
   }
 }
-

@@ -1,4 +1,4 @@
-// ignore_for_file: use_build_context_synchronously
+// ignore_for_file: use_build_context_synchronously, prefer_final_fields
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -26,11 +26,28 @@ class EventPage extends StatefulWidget {
 class _EventPageState extends State<EventPage> {
   String _filter = "All";
   String _communityName = "";
+  bool _isCurrentUserAdmin = false;
 
   @override
   void initState() {
     super.initState();
     _communityName = widget.communityName;
+    _checkIfAdmin();
+  }
+
+  void _checkIfAdmin() async {
+    final snapshot = await FirebaseFirestore.instance
+        .collection('communities')
+        .doc(widget.communityId)
+        .get();
+
+    final data = snapshot.data();
+    if (data != null) {
+      final admins = List<String>.from(data['admins'] ?? []);
+      setState(() {
+        _isCurrentUserAdmin = admins.contains(widget.currentUserId);
+      });
+    }
   }
 
   @override
@@ -127,25 +144,34 @@ class _EventPageState extends State<EventPage> {
                   itemBuilder: (context, index) {
                     final doc = filteredEvents[index];
                     final data = doc.data() as Map<String, dynamic>;
-                    final startTime = (data['startTime'] as Timestamp).toDate();
-                    final locationMap =
-                        data['location'] as Map<String, dynamic>?;
+                    final startTime = (data['startTime'] as Timestamp)
+                        .toDate()
+                        .toLocal();
                     final entryFeeMap =
                         data['entryFee'] as Map<String, dynamic>?;
+                    final attendees = data['attendees'] as List? ?? [];
+
+                    String entryFeeString;
+                    if ((entryFeeMap?['amount'] as num? ?? 0) == 0) {
+                      entryFeeString = 'Free!';
+                    } else if (entryFeeMap != null && entryFeeMap['amount'] != null) {
+                      final amount = (entryFeeMap['amount'] as num).toStringAsFixed(2);
+                      final currency = entryFeeMap['currency'] as String? ?? '';
+                      entryFeeString = '$currency $amount';
+                    } else {
+                      // Fallback, though the above logic should cover most cases
+                      entryFeeString = 'Free!';
+                    }
 
                     return EventCard(
-                      title: data['title'] ?? 'Untitled',
-                      description: data['description'] ?? '',
+                      title: data['title'] as String? ?? 'Untitled',
+                      description: data['description'] as String? ?? '',
                       datetime: startTime,
-                      venue: data['venue'] ?? 'TBD',
-                      attendeeCount: (data['attendees'] as List).length,
-                      maxAttendees: data['maxAttendees'] ?? 999,
-                      isUserGoing: (data['attendees'] as List).contains(
-                        widget.currentUserId,
-                      ),
-                      entryFee: entryFeeMap != null && entryFeeMap['amount'] > 0
-                          ? "${entryFeeMap['currency']} ${entryFeeMap['amount']}"
-                          : "Free",
+                      venue: data['venue'] as String? ?? 'TBD',
+                      entryFee: entryFeeString,
+                      attendeeCount: attendees.length,
+                      maxAttendees: data['maxAttendees'] as int? ?? 999,
+                      isUserGoing: attendees.contains(widget.currentUserId),
                       onJoin: () => _toggleRSVP(doc.id, true),
                       onUnjoin: () => _toggleRSVP(doc.id, false),
                       onTap: () {
@@ -159,6 +185,9 @@ class _EventPageState extends State<EventPage> {
                           ),
                         );
                       },
+                      onDelete: (attendees.isEmpty && _isCurrentUserAdmin)
+                          ? () => _confirmDeleteEvent(doc.id)
+                          : null,
                     );
                   },
                 );
@@ -171,7 +200,7 @@ class _EventPageState extends State<EventPage> {
   }
 
   Widget _buildFilterChips() {
-    const filters = ['All', 'This Week', 'My Events'];
+    const filters = ['All', 'Past', 'Upcoming'];
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Wrap(
@@ -197,15 +226,13 @@ class _EventPageState extends State<EventPage> {
   bool _applyFilter(QueryDocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     final date = (data['startTime'] as Timestamp).toDate();
+    final now = DateTime.now();
 
     switch (_filter) {
-      case 'This Week':
-        final now = DateTime.now();
-        final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
-        final endOfWeek = startOfWeek.add(const Duration(days: 6));
-        return date.isAfter(startOfWeek) && date.isBefore(endOfWeek);
-      case 'My Events':
-        return (data['attendees'] as List).contains(widget.currentUserId);
+      case 'Past':
+        return date.isBefore(now);
+      case 'Upcoming':
+        return date.isAfter(now);
       default:
         return true;
     }
@@ -258,6 +285,35 @@ class _EventPageState extends State<EventPage> {
               });
         }
       }
+    }
+  }
+
+  void _confirmDeleteEvent(String eventId) async {
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Event'),
+        content: const Text('Are you sure you want to delete this event?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldDelete == true) {
+      await FirebaseFirestore.instance
+          .collection('communities')
+          .doc(widget.communityId)
+          .collection('events')
+          .doc(eventId)
+          .delete();
     }
   }
 }

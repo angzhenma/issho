@@ -75,8 +75,6 @@ class _NotificationCard extends StatelessWidget {
         return Icons.logout_rounded;
       case 'event_joined':
         return Icons.event_available_rounded;
-      case 'followed':
-        return Icons.person_add_alt_1_rounded;
       default:
         return Icons.notifications_rounded;
     }
@@ -91,8 +89,6 @@ class _NotificationCard extends StatelessWidget {
         return scheme.errorContainer;
       case 'event_joined':
         return scheme.secondaryContainer;
-      case 'followed':
-        return scheme.tertiaryContainer;
       default:
         return scheme.surfaceContainerHighest;
     }

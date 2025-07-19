@@ -52,10 +52,6 @@ class _EventCalendarPageState extends State<EventCalendarPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        title: const Text('Event Calendar'),
-      ),
       body: Column(
         children: [
           TableCalendar(
