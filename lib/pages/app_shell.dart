@@ -32,7 +32,6 @@ class _AppShellState extends State<AppShell> {
     return [
       const CommunitiesPage(),
       EventCalendarPage(userId: userId),
-      // NotificationsPage will handle its own FAB for 'mark all as read'
       const NotificationsPage(),
       const SettingsPage(),
     ];
@@ -94,22 +93,22 @@ class _AppShellState extends State<AppShell> {
             : null,
       ),
       body: _pages[_selectedIndex],
-      floatingActionButton: _selectedIndex == 0 // Only show FAB for Communities page currently
+      floatingActionButton: _selectedIndex == 0
           ? FloatingActionButton(
               onPressed: _onFabPressed,
               tooltip: 'Create Community',
               child: const Icon(Icons.add_rounded),
             )
-          : null, // FAB for notifications page will be handled internally
+          : null,
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: StreamBuilder<QuerySnapshot>(
-        // Listen to notification changes to update icon
+        // listening for unread notifications
         stream: (userId != null)
             ? FirebaseFirestore.instance
                 .collection('users')
                 .doc(userId)
                 .collection('notifications')
-                .where('isRead', isEqualTo: false) // Only get unread
+                .where('isRead', isEqualTo: false)
                 .snapshots()
             : null, // If no user, no stream
         builder: (context, snapshot) {

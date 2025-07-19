@@ -361,7 +361,7 @@ class _EditAccountPageState extends State<EditAccountPage> {
                           title: Text(data['name'] ?? 'Untitled Community'),
                           subtitle: Text(data['activityType'] ?? 'No activity type'),
                           trailing: IconButton(
-                            icon: const Icon(Icons.logout_rounded, color: Colors.red),
+                            icon: const Icon(Icons.exit_to_app_rounded, color: Colors.redAccent),
                             onPressed: () => _attemptLeaveCommunity(doc),
                             tooltip: 'Leave Community',
                           ),

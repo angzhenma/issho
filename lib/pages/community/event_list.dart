@@ -101,7 +101,7 @@ class _EventListPageState extends State<EventListPage> {
                       ? NetworkImage(attendee['photoUrl'])
                       : null,
                   child: attendee['photoUrl'] == null
-                      ? const Icon(Icons.person)
+                      ? const Icon(Icons.person_rounded)
                       : null,
                 ),
                 title: Text(attendee['displayName']),

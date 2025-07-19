@@ -15,7 +15,7 @@ class AppRouter {
     switch (routeSettings.name) {
       case AppRoutes.login:
         return MaterialPageRoute(builder: (_) => const LoginPage());
-      case AppRoutes.home: // now leads to AppShell
+      case AppRoutes.home:
         return MaterialPageRoute(builder: (_) => const AppShell());
       default:
         return MaterialPageRoute(

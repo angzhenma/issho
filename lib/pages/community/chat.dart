@@ -254,7 +254,7 @@ class _ChatPageState extends State<ChatPage> {
                 if (docs.isEmpty) {
                   return const Center(
                     child: Text(
-                      "It's quiet in here... anyone got a good conversation starter?",
+                      "It's quiet in here... Anyone got a good conversation starter?",
                     ),
                   );
                 }

@@ -78,9 +78,8 @@ class _EditNotificationsPageState extends State<EditNotificationsPage> {
   }
 
   Widget _buildSwitch(String key, String title, String subtitle) {
-    // Ensure the key exists in _prefs before accessing
     if (!_prefs.containsKey(key)) {
-      _prefs[key] = true; // Default to true if somehow missing
+      _prefs[key] = true;
     }
     return SwitchListTile(
       value: _prefs[key]!,
@@ -88,9 +87,9 @@ class _EditNotificationsPageState extends State<EditNotificationsPage> {
       subtitle: Text(subtitle),
       onChanged: (val) {
         setState(() {
-          _prefs[key] = val; // Optimistically update UI
+          _prefs[key] = val;
         });
-        _updatePrefs(); // Then try to save to Firestore
+        _updatePrefs();
       },
     );
   }
