@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart';
+import 'package:issho/pages/community/event_list.dart';
 
 class EventCalendarPage extends StatefulWidget {
   final String userId;
@@ -22,6 +23,7 @@ class _EventCalendarPageState extends State<EventCalendarPage> {
   @override
   void initState() {
     super.initState();
+    _selectedDay = _focusedDay;
     _fetchEvents();
   }
 
@@ -33,11 +35,34 @@ class _EventCalendarPageState extends State<EventCalendarPage> {
 
     for (final doc in snapshot.docs) {
       final data = doc.data();
-      final start = (data['startTime'] as Timestamp).toDate();
+      Timestamp? startTimeStamp = data['startTime'] as Timestamp?;
+      startTimeStamp ??= data['endTime'] as Timestamp?;
+      if (startTimeStamp == null) {
+        continue;
+      }
+
+      final start = startTimeStamp.toDate().toLocal();
       final day = DateTime(start.year, start.month, start.day);
-      data['eventId'] = doc.id;
-      data['communityId'] = doc.reference.parent.parent?.id;
-      events.putIfAbsent(day, () => []).add(data);
+
+      final communityId = doc.reference.parent.parent?.id;
+      String communityName = '';
+      if (communityId != null) {
+        try {
+          final communityDoc = await FirebaseFirestore.instance.collection('communities').doc(communityId).get();
+          communityName = communityDoc.data()?['name'] ?? 'Unknown Community';
+        } catch (e) {
+          communityName = 'Unknown Community';
+        }
+      }
+
+      final eventData = {
+        'eventId': doc.id,
+        'communityId': communityId,
+        'communityName': communityName,
+        ...data,
+      };
+
+      events.putIfAbsent(day, () => []).add(eventData);
     }
 
     setState(() {
@@ -49,8 +74,20 @@ class _EventCalendarPageState extends State<EventCalendarPage> {
     return _events[DateTime(day.year, day.month, day.day)] ?? [];
   }
 
+  String _formatEntryFee(Map<String, dynamic>? entryFeeMap) {
+    if (entryFeeMap == null || (entryFeeMap['amount'] as num? ?? 0) == 0) {
+      return 'Free!';
+    } else {
+      final amount = (entryFeeMap['amount'] as num).toStringAsFixed(2);
+      final currency = entryFeeMap['currency'] as String? ?? '';
+      return '$currency $amount';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
       body: Column(
         children: [
@@ -68,90 +105,214 @@ class _EventCalendarPageState extends State<EventCalendarPage> {
             eventLoader: _getEventsForDay,
             calendarStyle: CalendarStyle(
               markerDecoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary,
+                color: theme.colorScheme.primary.withOpacity(0.7),
                 shape: BoxShape.circle,
               ),
+              selectedDecoration: BoxDecoration(
+                color: theme.colorScheme.primary,
+                shape: BoxShape.circle,
+              ),
+              todayDecoration: BoxDecoration(
+                color: theme.colorScheme.primary.withOpacity(0.5),
+                shape: BoxShape.circle,
+              ),
+            ),
+            calendarBuilders: CalendarBuilders(
+              markerBuilder: (context, day, events) {
+                if (events.isNotEmpty) {
+                  final joinedEventsOnDay = events.where((event) {
+                    final attendees = (event as Map<String, dynamic>)['attendees'] as List? ?? [];
+                    return attendees.contains(widget.userId);
+                  }).toList();
+
+                  return Positioned(
+                    right: 1,
+                    bottom: 1,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (events.isNotEmpty)
+                          Container(
+                            width: 7.0,
+                            height: 7.0,
+                            margin: const EdgeInsets.symmetric(horizontal: 0.5),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.primary.withOpacity(0.7),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        if (joinedEventsOnDay.isNotEmpty)
+                          Container(
+                            width: 7.0,
+                            height: 7.0,
+                            margin: const EdgeInsets.symmetric(horizontal: 0.5),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.secondary,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                      ],
+                    ),
+                  );
+                }
+                return null;
+              },
             ),
           ),
           const SizedBox(height: 8),
           Expanded(
             child: _selectedDay == null
-                ? const Center(child: Text("Select a date"))
-                : ListView(
-                    children: _getEventsForDay(_selectedDay!).map((event) {
-                      final start = (event['startTime'] as Timestamp).toDate();
-                      final end = (event['endTime'] as Timestamp).toDate();
-                      final fee = event['entryFee'] ?? '';
-                      final location =
-                          [
-                                event['venue'],
-                                event['city'],
-                                event['state'],
-                                event['country'],
-                              ]
-                              .where(
-                                (s) => s != null && s.toString().isNotEmpty,
-                              )
-                              .join(', ');
+                ? const Center(child: Text("Select a date to view events."))
+                : _getEventsForDay(_selectedDay!).isEmpty
+                    ? Center(child: Text("No events on ${DateFormat('dd MMM yyyy').format(_selectedDay!)}."))
+                    : ListView(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        children: _getEventsForDay(_selectedDay!).map((event) {
+                          final startTimeStamp = event['startTime'] as Timestamp?;
+                          final endTimeStamp = event['endTime'] as Timestamp?;
 
-                      return Card(
-                        margin: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        child: ListTile(
-                          title: Text(event['title'] ?? 'Untitled'),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              if (event['communityName'] != null)
-                                Text('Community: ${event['communityName']}'),
-                              if (event['description'] != null)
-                                Text(event['description']),
-                              Text(
-                                'Time: ${DateFormat.jm().format(start)} - ${DateFormat.jm().format(end)}',
-                              ),
-                              Text('Entry Fee: ${formatEntryFee(fee)}'),
-                              Text('Location: $location'),
-                              InkWell(
-                                onTap: () {
-                                  Navigator.pushNamed(
-                                    context,
-                                    '/event_list',
-                                    arguments: {
-                                      'communityId': event['communityId'],
-                                      'eventId': event['eventId'],
-                                    },
-                                  );
-                                },
-                                child: Text(
-                                  'Attendees: ${(event['attendees'] as List?)?.length ?? 0}',
-                                  style: TextStyle(
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.primary,
-                                    decoration: TextDecoration.underline,
+                          final start = startTimeStamp?.toDate().toLocal() ?? DateTime.now();
+                          final end = endTimeStamp?.toDate().toLocal() ?? DateTime.now();
+
+                          final entryFeeMap = event['entryFee'] as Map<String, dynamic>?;
+                          final attendees = event['attendees'] as List? ?? [];
+
+                          final locationParts = <String>[];
+                          if (event['venue'] != null && event['venue'].isNotEmpty) {
+                            locationParts.add(event['venue']);
+                          }
+                          final locationData = event['location'] as Map<String, dynamic>?;
+                          if (locationData != null) {
+                            if (locationData['city'] != null && locationData['city'].isNotEmpty) {
+                              locationParts.add(locationData['city']);
+                            }
+                            if (locationData['state'] != null && locationData['state'].isNotEmpty) {
+                              locationParts.add(locationData['state']);
+                            }
+                            if (locationData['country'] != null && locationData['country'].isNotEmpty) {
+                              locationParts.add(locationData['country']);
+                            }
+                          }
+                          final locationString = locationParts.join(', ');
+
+                          return Card(
+                            margin: const EdgeInsets.symmetric(vertical: 8),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            elevation: 1,
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    event['title'] ?? 'Untitled Event',
+                                    style: theme.textTheme.titleMedium?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color: theme.colorScheme.onSurface,
+                                    ),
                                   ),
-                                ),
+                                  if (event['communityName'] != null && event['communityName'].isNotEmpty) ...[
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'Community: ${event['communityName']}',
+                                      style: theme.textTheme.bodySmall?.copyWith(
+                                        color: theme.colorScheme.onSurfaceVariant,
+                                      ),
+                                    ),
+                                  ],
+                                  if (event['description'] != null && event['description'].isNotEmpty) ...[
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      event['description'],
+                                      style: theme.textTheme.bodyMedium?.copyWith(
+                                        color: theme.colorScheme.onSurface.withOpacity(0.8),
+                                      ),
+                                    ),
+                                  ],
+                                  const SizedBox(height: 8),
+                                  _buildDetailRow(
+                                    context,
+                                    Icons.access_time_rounded,
+                                    'Time:',
+                                    '${DateFormat.jm().format(start)} - ${DateFormat.jm().format(end)}',
+                                  ),
+                                  _buildDetailRow(
+                                    context,
+                                    Icons.payments_rounded,
+                                    'Entry Fee:',
+                                    _formatEntryFee(entryFeeMap),
+                                  ),
+                                  _buildDetailRow(
+                                    context,
+                                    Icons.location_on_rounded,
+                                    'Location:',
+                                    locationString.isNotEmpty ? locationString : 'TBD',
+                                  ),
+                                  InkWell(
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => EventListPage(
+                                            communityId: event['communityId'],
+                                            eventId: event['eventId'],
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(vertical: 4.0),
+                                      child: Text(
+                                        'Attendees: ${attendees.length} '
+                                        '${(event['maxAttendees'] != null && event['maxAttendees'] > 0) ? '/ ${event['maxAttendees']}' : ''}',
+                                        style: theme.textTheme.bodySmall?.copyWith(
+                                          color: theme.colorScheme.primary,
+                                          decoration: TextDecoration.underline,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
           ),
         ],
       ),
     );
   }
 
-  String formatEntryFee(String fee) {
-    final parts = fee.trim().split(' ');
-    if (parts.length != 2) return 'Free!';
-    final currency = parts[0];
-    final amount = double.tryParse(parts[1].replaceAll(',', ''));
-    if (amount == null || amount == 0) return 'Free!';
-    return '$currency ${amount.toStringAsFixed(2)}';
+  Widget _buildDetailRow(BuildContext context, IconData icon, String label, String value) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 16, color: theme.colorScheme.onSurfaceVariant),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: theme.textTheme.bodySmall?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: theme.colorScheme.onSurface,
+            ),
+          ),
+          const SizedBox(width: 4),
+          Expanded(
+            child: Text(
+              value,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface.withOpacity(0.8),
+              ),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 2,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
