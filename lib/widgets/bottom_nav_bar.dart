@@ -4,12 +4,14 @@ class BottomNavBar extends StatelessWidget {
   final int currentIndex;
   final Function(int) onTap;
   final bool showFAB;
+  final bool hasUnreadNotifications;
 
   const BottomNavBar({
     super.key,
     required this.currentIndex,
     required this.onTap,
     this.showFAB = false,
+    this.hasUnreadNotifications = false,
   });
 
   @override
@@ -54,7 +56,9 @@ class BottomNavBar extends StatelessWidget {
                 children: [
                   IconButton(
                     icon: Icon(
-                      Icons.notifications_rounded,
+                      hasUnreadNotifications
+                          ? Icons.notifications_active_rounded
+                          : Icons.notifications_rounded,
                       color: currentIndex == 2
                           ? Theme.of(context).colorScheme.primary
                           : Colors.grey,

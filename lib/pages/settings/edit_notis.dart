@@ -15,7 +15,6 @@ class _EditNotificationsPageState extends State<EditNotificationsPage> {
     'admin_role': true,
     'kicked_from_community': true,
     'event_joined': true,
-    'new_follower': true,
   };
 
   bool _loading = true;
@@ -91,11 +90,6 @@ class _EditNotificationsPageState extends State<EditNotificationsPage> {
                   'event_joined',
                   'Event Join Alert',
                   'Be notified when someone joins your event.',
-                ),
-                _buildSwitch(
-                  'new_follower',
-                  'New Follower',
-                  'Know when someone follows your profile.',
                 ),
               ],
             ),
