@@ -33,18 +33,6 @@ class _EventPageState extends State<EventPage> {
     _communityName = widget.communityName;
   }
 
-  // void _loadCommunityName() async {
-  //   final snapshot = await FirebaseFirestore.instance
-  //       .collection('communities')
-  //       .doc(widget.communityId)
-  //       .get();
-  //   if (snapshot.exists) {
-  //     setState(() {
-  //       _communityName = snapshot.data()?['name'] ?? widget.communityId;
-  //     });
-  //   }
-  // }
-
   @override
   Widget build(BuildContext context) {
     final eventsQuery = FirebaseFirestore.instance

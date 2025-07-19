@@ -1,9 +1,11 @@
+// ignore_for_file: unnecessary_underscores, use_build_context_synchronously, deprecated_member_use
+
+import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:issho/pages/community/events.dart';
 import 'package:issho/pages/profile.dart';
+import 'package:issho/widgets/member_list.dart';
 
 class ChatPage extends StatefulWidget {
   final String communityId;
@@ -25,14 +27,11 @@ class _ChatPageState extends State<ChatPage> {
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final _user = FirebaseAuth.instance.currentUser!;
-
   String _communityId = '';
   String _communityName = '';
   List<String> _admins = [];
   List<String> _pros = [];
-  List<Map<String, dynamic>> _members = [];
   int? _lastDocCount;
-  bool _showSidebar = false;
 
   @override
   void initState() {
@@ -54,19 +53,10 @@ class _ChatPageState extends State<ChatPage> {
         _admins = List<String>.from(data['admins']);
         _pros = List<String>.from(data['pros'] ?? []);
       });
-
-      final usersSnapshot = await FirebaseFirestore.instance.collection('users').get();
-      final allUsers = usersSnapshot.docs.map((e) => e.data()).toList();
-
-      setState(() {
-        _members = allUsers
-            .where((user) => data['members'].contains(user['uid']))
-            .toList();
-      });
     }
   }
 
-  void _sendMessage(String text) async {
+  Future<void> _sendMessage(String text) async {
     if (text.trim().isEmpty) return;
 
     final userData = await FirebaseFirestore.instance
@@ -74,13 +64,19 @@ class _ChatPageState extends State<ChatPage> {
         .doc(_user.uid)
         .get();
 
-    FirebaseFirestore.instance.collection('messages').add({
+    final messageData = {
       'communityId': _communityId,
       'senderId': _user.uid,
       'senderName': userData['displayName'],
-      'text': text.trim(),
-      'timestamp': Timestamp.now(),
-    });
+      'messageText': text.trim(),
+      'messageTime': Timestamp.now(),
+    };
+
+    await FirebaseFirestore.instance
+        .collection('communities')
+        .doc(_communityId)
+        .collection('messages')
+        .add(messageData);
 
     _controller.clear();
     _scrollToBottom();
@@ -100,233 +96,208 @@ class _ChatPageState extends State<ChatPage> {
 
   Widget _buildMessage(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
-    final isAdmin = _admins.contains(data['senderId']);
-    final isPro = _pros.contains(data['senderId']);
-    final isEvent = data.containsKey('eventId');
+    final bool isCurrentUser = data['senderId'] == _user.uid;
+    final bool isAdmin = _admins.contains(data['senderId']);
+    final bool isPro = _pros.contains(data['senderId']);
 
-    if (isEvent) return _buildEventMessage(data);
+    final Color bubbleColor = isCurrentUser
+        ? Theme.of(context).colorScheme.primary
+        : Theme.of(context).colorScheme.secondary;
+
+    final Color textColor = isCurrentUser
+        ? Theme.of(context).colorScheme.onPrimary
+        : Colors.black;
+
+    final Color senderColor = isAdmin
+        ? Colors.pinkAccent
+        : isPro
+        ? Colors.deepPurpleAccent
+        : Colors.black;
 
     return Align(
-      alignment: data['senderId'] == _user.uid
-          ? Alignment.centerRight
-          : Alignment.centerLeft,
+      alignment: isCurrentUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 6),
-        padding: const EdgeInsets.all(12),
+        margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
         decoration: BoxDecoration(
-          color: data['senderId'] == _user.uid
-              ? Theme.of(context).colorScheme.primaryContainer
-              : Theme.of(context).cardColor,
-          borderRadius: BorderRadius.circular(12),
+          color: bubbleColor,
+          borderRadius: BorderRadius.only(
+            topLeft: const Radius.circular(16),
+            topRight: const Radius.circular(16),
+            bottomLeft: isCurrentUser
+                ? const Radius.circular(16)
+                : const Radius.circular(4),
+            bottomRight: isCurrentUser
+                ? const Radius.circular(4)
+                : const Radius.circular(16),
+          ),
         ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: isCurrentUser
+              ? CrossAxisAlignment.end
+              : CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            GestureDetector(
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => ProfilePage(userId: data['senderId']),
+            if (!isCurrentUser)
+              GestureDetector(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ProfilePage(userId: data['senderId']),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      data['senderName'],
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: senderColor,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    if (isAdmin)
+                      const Padding(
+                        padding: EdgeInsets.only(left: 4),
+                        child: Icon(
+                          Icons.shield_rounded,
+                          size: 16,
+                          color: Colors.pinkAccent,
+                        ),
+                      ),
+                    if (isPro)
+                      const Padding(
+                        padding: EdgeInsets.only(left: 4),
+                        child: Icon(
+                          Icons.star_rounded,
+                          size: 16,
+                          color: Colors.deepPurpleAccent,
+                        ),
+                      ),
+                  ],
                 ),
               ),
-              child: Row(
-                children: [
-                  Text(
-                    data['senderName'],
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: isAdmin
-                          ? Colors.amber
-                          : isPro
-                              ? Colors.lightBlue
-                              : null,
-                    ),
-                  ),
-                  if (isAdmin)
-                    const Padding(
-                      padding: EdgeInsets.only(left: 4),
-                      child: Icon(Icons.shield_rounded, size: 16, color: Colors.amber),
-                    ),
-                  if (isPro)
-                    const Padding(
-                      padding: EdgeInsets.only(left: 4),
-                      child: Icon(Icons.stars_rounded, size: 16, color: Colors.lightBlue),
-                    ),
-                ],
-              ),
+            if (!isCurrentUser) const SizedBox(height: 4),
+            Text(
+              data['messageText'],
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: textColor),
             ),
-            const SizedBox(height: 4),
-            Text(data['text']),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildEventMessage(Map<String, dynamic> data) {
-    return GestureDetector(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => EventPage(
-            communityId: widget.communityId,
-            communityName: widget.communityName, // ✅ FIXED: required param
-            currentUserId: widget.currentUserId,
-          ),
+  Future<void> _navigateToMembers() async {
+    final communityDoc = await FirebaseFirestore.instance
+        .collection('communities')
+        .doc(widget.communityId)
+        .get();
+
+    final data = communityDoc.data();
+    final List<String> memberIds = List<String>.from(data?['members'] ?? []);
+    final List<String> adminIds = List<String>.from(data?['admins'] ?? []);
+    final List<String> proIds = List<String>.from(data?['pros'] ?? []);
+    final String communityName = data?['name'] ?? 'Community';
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MemberListPage(
+          communityId: widget.communityId,
+          communityName: communityName,
+          memberIds: memberIds,
+          adminIds: adminIds,
+          proIds: proIds,
         ),
       ),
-      child: Card(
-        margin: const EdgeInsets.symmetric(vertical: 10),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(data['eventTitle'] ?? 'Untitled Event'),
-              Text(
-                data['eventTime'] != null
-                    ? '🕒 ${DateFormat.jm().format(data['eventTime'].toDate())}'
-                    : '🕒 Time not set',
-              ),
-              Text('📍 ${data['eventLocation'] ?? 'Unknown'}'),
-              ElevatedButton(onPressed: () {}, child: const Text("I'm in!")),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSidebar() {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      width: _showSidebar ? MediaQuery.of(context).size.width * 0.75 : 0,
-      color: Theme.of(context).scaffoldBackgroundColor,
-      child: _showSidebar
-          ? Column(
-              children: [
-                AppBar(
-                  title: const Text('Community Members'),
-                  leading: IconButton(
-                    icon: const Icon(Icons.arrow_back_ios_rounded),
-                    onPressed: () => setState(() => _showSidebar = false),
-                  ),
-                ),
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: _members.length,
-                    itemBuilder: (context, index) {
-                      final member = _members[index];
-                      final isAdmin = _admins.contains(member['uid']);
-                      final isPro = _pros.contains(member['uid']);
-
-                      return ListTile(
-                        leading: Icon(
-                          isAdmin
-                              ? Icons.shield_rounded
-                              : isPro
-                                  ? Icons.stars_rounded
-                                  : Icons.person,
-                        ),
-                        title: Text(
-                          member['displayName'] ?? '',
-                          style: TextStyle(
-                            color: isAdmin
-                                ? Colors.amber
-                                : isPro
-                                    ? Colors.lightBlue
-                                    : null,
-                          ),
-                        ),
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => ProfilePage(userId: member['uid']),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            )
-          : null,
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
+      body: Column(
         children: [
-          Column(
-            children: [
-              AppBar(
-                title: Text(_communityName.isNotEmpty ? _communityName : 'Community Chat'),
-                leading: IconButton(
-                  icon: const Icon(Icons.clear_rounded),
-                  onPressed: () => Navigator.pop(context),
-                ),
-                actions: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_forward_ios_rounded),
-                    onPressed: () => setState(() => _showSidebar = true),
-                  ),
-                ],
-              ),
-              Expanded(
-                child: StreamBuilder<QuerySnapshot>(
-                  stream: FirebaseFirestore.instance
-                      .collection('messages')
-                      .where('communityId', isEqualTo: _communityId)
-                      .orderBy('timestamp')
-                      .snapshots(),
-                  builder: (context, snapshot) {
-                    if (!snapshot.hasData) {
-                      return const Center(child: LinearProgressIndicator());
-                    }
-
-                    final docs = snapshot.data!.docs;
-
-                    if (_lastDocCount == null || docs.length > _lastDocCount!) {
-                      WidgetsBinding.instance.addPostFrameCallback(
-                        (_) => _scrollToBottom(),
-                      );
-                    }
-                    _lastDocCount = docs.length;
-
-                    return ListView.builder(
-                      controller: _scrollController,
-                      itemCount: docs.length,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      itemBuilder: (context, index) => _buildMessage(docs[index]),
-                    );
-                  },
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _controller,
-                        decoration: const InputDecoration(
-                          hintText: 'Type a message...',
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      icon: const Icon(Icons.send_rounded),
-                      onPressed: () => _sendMessage(_controller.text),
-                    ),
-                  ],
-                ),
+          AppBar(
+            title: Text(
+              _communityName.isNotEmpty ? _communityName : 'Community Chat',
+            ),
+            leading: IconButton(
+              icon: const Icon(Icons.clear_rounded),
+              onPressed: () => Navigator.pop(context),
+            ),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.arrow_forward_ios_rounded),
+                onPressed: _navigateToMembers,
               ),
             ],
           ),
-          _buildSidebar(),
+          Expanded(
+            child: StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('communities')
+                  .doc(_communityId)
+                  .collection('messages')
+                  .orderBy('messageTime')
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return const Center(child: LinearProgressIndicator());
+                }
+
+                final docs = snapshot.data!.docs;
+
+                if (docs.isEmpty) {
+                  return const Center(
+                    child: Text(
+                      "It's quiet in here... anyone got a good conversation starter?",
+                    ),
+                  );
+                }
+
+                if (_lastDocCount == null || docs.length > _lastDocCount!) {
+                  WidgetsBinding.instance.addPostFrameCallback(
+                    (_) => _scrollToBottom(),
+                  );
+                }
+                _lastDocCount = docs.length;
+
+                return ListView.builder(
+                  controller: _scrollController,
+                  itemCount: docs.length,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  itemBuilder: (context, index) => _buildMessage(docs[index]),
+                );
+              },
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _controller,
+                    decoration: const InputDecoration(
+                      hintText: 'Type a message...',
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: const Icon(Icons.send_rounded),
+                  onPressed: () => _sendMessage(_controller.text),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );

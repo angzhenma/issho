@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:issho/pages/account.dart';
 import 'package:issho/pages/communities.dart';
 import 'package:issho/pages/community/event_calendar.dart';
 import 'package:issho/pages/notifications.dart';
+import 'package:issho/pages/profile.dart';
 import 'package:issho/pages/settings.dart';
 import 'package:issho/pages/community/create.dart';
 import 'package:issho/widgets/bottom_nav_bar.dart';
@@ -65,7 +67,12 @@ class _AppShellState extends State<AppShell> {
             padding: const EdgeInsets.only(right: 12.0),
             child: GestureDetector(
               onTap: () {
-                Navigator.pushNamed(context, '/profile');
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ProfilePage(userId: FirebaseAuth.instance.currentUser!.uid),
+                  ),
+                );
               },
               child: CircleAvatar(
                 radius: 18,
