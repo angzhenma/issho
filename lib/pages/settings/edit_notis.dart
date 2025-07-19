@@ -1,3 +1,5 @@
+// ignore_for_file: avoid_print
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -26,42 +28,69 @@ class _EditNotificationsPageState extends State<EditNotificationsPage> {
   }
 
   Future<void> _loadPrefs() async {
-    final doc = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(_user.uid)
-        .collection('preferences')
-        .doc('notifications')
-        .get();
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(_user.uid)
+          .collection('preferences')
+          .doc('notifications')
+          .get();
 
-    if (doc.exists) {
-      final data = doc.data()!;
-      setState(() {
-        for (var key in _prefs.keys) {
-          _prefs[key] = data[key] ?? true;
+      if (mounted) {
+        if (doc.exists) {
+          final data = doc.data()!;
+          setState(() {
+            for (var key in _prefs.keys) {
+              _prefs[key] = data[key] ?? true;
+            }
+          });
         }
-      });
+        setState(() => _loading = false);
+      }
+    } catch (e) {
+      print('Error loading notification preferences: $e');
+      if (mounted) {
+        setState(() => _loading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to load preferences.')),
+        );
+      }
     }
-
-    setState(() => _loading = false);
   }
 
   Future<void> _updatePrefs() async {
-    await FirebaseFirestore.instance
-        .collection('users')
-        .doc(_user.uid)
-        .collection('preferences')
-        .doc('notifications')
-        .set(_prefs);
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(_user.uid)
+          .collection('preferences')
+          .doc('notifications')
+          .set(_prefs, SetOptions(merge: true));
+
+    } catch (e) {
+      print('Error updating notification preferences: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to save preference.')),
+        );
+      }
+    }
   }
 
   Widget _buildSwitch(String key, String title, String subtitle) {
+    // Ensure the key exists in _prefs before accessing
+    if (!_prefs.containsKey(key)) {
+      _prefs[key] = true; // Default to true if somehow missing
+    }
     return SwitchListTile(
       value: _prefs[key]!,
       title: Text(title),
       subtitle: Text(subtitle),
       onChanged: (val) {
-        setState(() => _prefs[key] = val);
-        _updatePrefs();
+        setState(() {
+          _prefs[key] = val; // Optimistically update UI
+        });
+        _updatePrefs(); // Then try to save to Firestore
       },
     );
   }
@@ -91,6 +120,12 @@ class _EditNotificationsPageState extends State<EditNotificationsPage> {
                   'Event Join Alert',
                   'Be notified when someone joins your event.',
                 ),
+                // templat for more notification types:
+                // _buildSwitch(
+                //   'noti_type',
+                //   'Notification Type',
+                //   'Notification Message.',
+                // ),
               ],
             ),
     );

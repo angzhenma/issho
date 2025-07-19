@@ -4,13 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:issho/pages/auth/register.dart';
 import 'package:issho/models/button.dart';
-import 'package:issho/models/text_field.dart';
+import 'package:issho/models/text_field.dart'; 
 
 // Programmer Name: Mr. Ibrahim Azaan Mauroof
 // Program Name: issho/lib/pages/auth/login.dart
 // Program Description: Login page of the Issho mobile application.
 // First Written on: Friday, 16-May-2025
-// Last Modified on: Monday, 15-July-2025
+// Last Modified on: Monday, 20-July-2025
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -55,7 +55,7 @@ class _LoginPageState extends State<LoginPage> {
           message = 'Wrong password provided.';
           break;
         case 'invalid-email':
-          message = 'That email looks wrong.';
+          message = 'That email format is invalid.';
           break;
         default:
           message = 'Something went wrong. Please try again.';
@@ -98,7 +98,8 @@ class _LoginPageState extends State<LoginPage> {
             onPressed: () => Navigator.pop(context),
             child: const Text('Cancel'),
           ),
-          ElevatedButton(
+          AppButton(
+            label: 'Send Email',
             onPressed: () async {
               Navigator.pop(context);
               try {
@@ -108,13 +109,20 @@ class _LoginPageState extends State<LoginPage> {
                     const SnackBar(content: Text('Reset email sent!')),
                   );
                 }
+              } on FirebaseAuthException catch (e) {
+                 if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Error sending reset email: ${e.message}')),
+                  );
+                 }
               } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Error: ${e.toString()}')),
-                );
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Error: ${e.toString()}')),
+                  );
+                }
               }
             },
-            child: const Text('Send Email'),
           ),
         ],
       ),
@@ -153,18 +161,23 @@ class _LoginPageState extends State<LoginPage> {
                   label: 'Email',
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
+                  validator: (val) =>
+                      val == null || val.trim().isEmpty ? 'Email is required' : null,
                 ),
                 const SizedBox(height: 16),
                 AppTextField(
                   label: 'Password',
                   controller: _passwordController,
                   obscureText: true,
+                  validator: (val) =>
+                      val == null || val.trim().isEmpty ? 'Password is required' : null,
                 ),
                 const SizedBox(height: 24),
                 AppButton(
                   label: 'Log In',
                   isLoading: _isLoading,
                   onPressed: _login,
+                  isExpanded: true,
                 ),
                 const SizedBox(height: 16),
                 Center(
