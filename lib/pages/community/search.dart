@@ -5,7 +5,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:issho/pages/community/chat.dart';
 import 'package:issho/pages/community/create.dart';
-import 'package:issho/pages/community/events.dart';
 import 'package:issho/pages/profile.dart';
 
 class SearchPage extends StatefulWidget {
@@ -32,6 +31,12 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
@@ -39,9 +44,10 @@ class _SearchPageState extends State<SearchPage> {
         title: TextField(
           controller: _controller,
           decoration: const InputDecoration(
-            hintText: 'Search users, communities, events...',
+            hintText: 'Search users or communities...',
             border: InputBorder.none,
           ),
+          textInputAction: TextInputAction.search,
         ),
       ),
       body: _query.isEmpty
@@ -52,7 +58,6 @@ class _SearchPageState extends State<SearchPage> {
                 children: [
                   _buildSection('Users', _searchUsers()),
                   _buildSection('Communities', _searchCommunities()),
-                  _buildSection('Events', _searchEvents()),
                 ],
               ),
             ),
@@ -60,14 +65,31 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   Widget _buildHistory() {
+    if (_history.isEmpty) {
+      return const Center(
+        child: Text('Start typing to search or view past searches here.'),
+      );
+    }
     return ListView(
       children: _history.map((item) {
         return ListTile(
           title: Text(item),
+          leading: const Icon(Icons.history),
+          trailing: IconButton(
+            icon: const Icon(Icons.clear),
+            onPressed: () {
+              setState(() {
+                _history.remove(item);
+              });
+            },
+          ),
           onTap: () {
             setState(() {
-              _query = item;
               _controller.text = item;
+              _controller.selection = TextSelection.fromPosition(
+                TextPosition(offset: _controller.text.length),
+              );
+              _query = item;
             });
           },
         );
@@ -79,15 +101,38 @@ class _SearchPageState extends State<SearchPage> {
     return StreamBuilder(
       stream: stream,
       builder: (context, snapshot) {
-        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-        final docs = snapshot.data!.docs;
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Text(label, style: Theme.of(context).textTheme.titleMedium),
+              ),
+              const LinearProgressIndicator(),
+            ],
+          );
+        }
 
+        if (snapshot.hasError) {
+          return Padding(
+            padding: const EdgeInsets.all(12),
+            child: Text('Error: ${snapshot.error}'),
+          );
+        }
+
+        final docs = snapshot.data!.docs;
         if (label == 'Communities' && docs.isEmpty) {
           return FutureBuilder<DocumentSnapshot>(
             future: FirebaseFirestore.instance.collection('users').doc(userId).get(),
-            builder: (context, snapshot) {
-              if (!snapshot.hasData) return const SizedBox();
-              final userData = snapshot.data!.data() as Map<String, dynamic>;
+            builder: (context, userSnapshot) {
+              if (userSnapshot.connectionState == ConnectionState.waiting) {
+                return const SizedBox();
+              }
+              if (!userSnapshot.hasData || !userSnapshot.data!.exists) {
+                return const SizedBox();
+              }
+              final userData = userSnapshot.data!.data() as Map<String, dynamic>;
               final interests = (userData['interests'] ?? []) as List;
               if (interests.any((i) => i.toString().toLowerCase() == _query.toLowerCase())) {
                 return Padding(
@@ -122,27 +167,35 @@ class _SearchPageState extends State<SearchPage> {
           );
         }
 
-        if (docs.isEmpty) return const SizedBox();
+        if (docs.isEmpty) {
+          return const SizedBox();
+        }
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Text(label, style: Theme.of(context).textTheme.titleMedium),
             ),
             ...docs.map((doc) => ListTile(
-                  title: Text(doc['displayName'] ?? doc['name'] ?? doc['title'] ?? 'Unnamed'),
+                  //
+                  title: Text(doc['displayName'] ?? doc['name'] ?? 'Unnamed'),
                   subtitle: Text(
                     label == 'Users'
                         ? doc['email'] ?? ''
                         : label == 'Communities'
-                            ? doc['activityType']
-                            : doc['description'] ?? '',
+                            ? doc['activityType'] ?? ''
+                            : '',
                   ),
                   onTap: () async {
-                    if (!_history.contains(_query)) {
-                      _history.insert(0, _query);
+                    if (!_history.contains(_query) && _query.isNotEmpty) {
+                      setState(() {
+                        _history.insert(0, _query);
+                        if (_history.length > 5) {
+                          _history.removeLast();
+                        }
+                      });
                     }
 
                     if (label == 'Users') {
@@ -153,7 +206,9 @@ class _SearchPageState extends State<SearchPage> {
                         ),
                       );
                     } else if (label == 'Communities') {
-                      final joined = (doc['members'] as List).contains(userId);
+                      final List<dynamic> members = doc['members'] ?? [];
+                      final joined = members.contains(userId);
+
                       if (!joined) {
                         final confirm = await showDialog<bool>(
                               context: context,
@@ -172,59 +227,24 @@ class _SearchPageState extends State<SearchPage> {
                         await FirebaseFirestore.instance.collection('communities').doc(doc.id).update({
                           'members': FieldValue.arrayUnion([userId])
                         });
+                        if (mounted) {
+                           ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Joined ${doc['name']}!')),
+                          );
+                        }
                       }
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ChatPage(
-                            communityId: doc.id,
-                            communityName: doc['name'],
-                            currentUserId: userId,
+                      if (mounted) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ChatPage(
+                              communityId: doc.id,
+                              communityName: doc['name'] ?? 'Community',
+                              currentUserId: userId,
+                            ),
                           ),
-                        ),
-                      );
-                    } else if (label == 'Events') {
-                      final communityId = doc['communityId'];
-                      final communitySnapshot = await FirebaseFirestore.instance
-                          .collection('communities')
-                          .doc(communityId)
-                          .get();
-                      if (!communitySnapshot.exists) return;
-
-                      final communityData = communitySnapshot.data()!;
-                      final joined = (communityData['members'] as List).contains(userId);
-                      final communityName = communityData['name'];
-
-                      if (!joined) {
-                        final confirm = await showDialog<bool>(
-                              context: context,
-                              builder: (_) => AlertDialog(
-                                title: Text('Join $communityName?'),
-                                content: const Text('You need to join this community to view event details.'),
-                                actions: [
-                                  TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-                                  ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text('Join')),
-                                ],
-                              ),
-                            ) ??
-                            false;
-                        if (!confirm) return;
-
-                        await FirebaseFirestore.instance.collection('communities').doc(communityId).update({
-                          'members': FieldValue.arrayUnion([userId])
-                        });
+                        );
                       }
-
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => EventPage(
-                            communityId: communityId,
-                            communityName: communityName, // ✅ FIXED HERE
-                            currentUserId: userId,
-                          ),
-                        ),
-                      );
                     }
                   },
                 )),
@@ -235,6 +255,7 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   Stream<QuerySnapshot> _searchUsers() {
+    if (_query.isEmpty) return Stream.empty();
     return FirebaseFirestore.instance
         .collection('users')
         .where('displayName', isGreaterThanOrEqualTo: _query)
@@ -243,18 +264,11 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   Stream<QuerySnapshot> _searchCommunities() {
+    if (_query.isEmpty) return Stream.empty();
     return FirebaseFirestore.instance
         .collection('communities')
         .where('name', isGreaterThanOrEqualTo: _query)
         .where('name', isLessThanOrEqualTo: '$_query\uf8ff')
-        .snapshots();
-  }
-
-  Stream<QuerySnapshot> _searchEvents() {
-    return FirebaseFirestore.instance
-        .collection('events')
-        .where('title', isGreaterThanOrEqualTo: _query)
-        .where('title', isLessThanOrEqualTo: '$_query\uf8ff')
         .snapshots();
   }
 }
