@@ -19,55 +19,81 @@ class _EventCalendarPageState extends State<EventCalendarPage> {
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
   Map<DateTime, List<Map<String, dynamic>>> _events = {};
+  Set<String> _joinedCommunityIds = {};
+  bool _isLoadingEvents = true;
 
   @override
   void initState() {
     super.initState();
     _selectedDay = _focusedDay;
-    _fetchEvents();
+    _fetchJoinedCommunitiesAndEvents();
   }
 
-  Future<void> _fetchEvents() async {
-    final snapshot = await FirebaseFirestore.instance
-        .collectionGroup('events')
-        .get();
-    final events = <DateTime, List<Map<String, dynamic>>>{};
+  Future<void> _fetchJoinedCommunitiesAndEvents() async {
+    setState(() {
+      _isLoadingEvents = true;
+    });
 
-    for (final doc in snapshot.docs) {
-      final data = doc.data();
-      Timestamp? startTimeStamp = data['startTime'] as Timestamp?;
-      startTimeStamp ??= data['endTime'] as Timestamp?;
-      if (startTimeStamp == null) {
-        continue;
-      }
+    try {
+      final userCommunitiesSnapshot = await FirebaseFirestore.instance
+          .collection('communities')
+          .where('members', arrayContains: widget.userId)
+          .get();
 
-      final start = startTimeStamp.toDate().toLocal();
-      final day = DateTime(start.year, start.month, start.day);
+      _joinedCommunityIds = userCommunitiesSnapshot.docs.map((doc) => doc.id).toSet();
 
-      final communityId = doc.reference.parent.parent?.id;
-      String communityName = '';
-      if (communityId != null) {
-        try {
-          final communityDoc = await FirebaseFirestore.instance.collection('communities').doc(communityId).get();
-          communityName = communityDoc.data()?['name'] ?? 'Unknown Community';
-        } catch (e) {
-          communityName = 'Unknown Community';
+      final allEventsSnapshot = await FirebaseFirestore.instance
+          .collectionGroup('events')
+          .get();
+
+      final events = <DateTime, List<Map<String, dynamic>>>{};
+
+      for (final doc in allEventsSnapshot.docs) {
+        final communityId = doc.reference.parent.parent?.id;
+
+        if (communityId != null && _joinedCommunityIds.contains(communityId)) {
+          final data = doc.data();
+          Timestamp? startTimeStamp = data['startTime'] as Timestamp?;
+          startTimeStamp ??= data['endTime'] as Timestamp?;
+          if (startTimeStamp == null) {
+            continue;
+          }
+          final start = startTimeStamp.toDate().toLocal();
+          final day = DateTime(start.year, start.month, start.day);
+
+          String communityName = '';
+          try {
+            final communityDoc = await FirebaseFirestore.instance.collection('communities').doc(communityId).get();
+            communityName = communityDoc.data()?['name'] ?? 'Unknown Community';
+          } catch (e) {
+            communityName = 'Unknown Community';
+          }
+
+          final eventData = {
+            'eventId': doc.id,
+            'communityId': communityId,
+            'communityName': communityName,
+            ...data,
+          };
+
+          events.putIfAbsent(day, () => []).add(eventData);
         }
       }
 
-      final eventData = {
-        'eventId': doc.id,
-        'communityId': communityId,
-        'communityName': communityName,
-        ...data,
-      };
-
-      events.putIfAbsent(day, () => []).add(eventData);
+      setState(() {
+        _events = events;
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error fetching events: ${e.toString()}')),
+        );
+      }
+    } finally {
+      setState(() {
+        _isLoadingEvents = false;
+      });
     }
-
-    setState(() {
-      _events = events;
-    });
   }
 
   List<Map<String, dynamic>> _getEventsForDay(DateTime day) {
@@ -89,198 +115,207 @@ class _EventCalendarPageState extends State<EventCalendarPage> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      body: Column(
-        children: [
-          TableCalendar(
-            focusedDay: _focusedDay,
-            firstDay: DateTime.utc(2020, 1, 1),
-            lastDay: DateTime.utc(2100, 12, 31),
-            selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
-            onDaySelected: (selectedDay, focusedDay) {
-              setState(() {
-                _selectedDay = selectedDay;
-                _focusedDay = focusedDay;
-              });
-            },
-            eventLoader: _getEventsForDay,
-            calendarStyle: CalendarStyle(
-              markerDecoration: BoxDecoration(
-                color: theme.colorScheme.primary.withOpacity(0.7),
-                shape: BoxShape.circle,
-              ),
-              selectedDecoration: BoxDecoration(
-                color: theme.colorScheme.primary,
-                shape: BoxShape.circle,
-              ),
-              todayDecoration: BoxDecoration(
-                color: theme.colorScheme.primary.withOpacity(0.5),
-                shape: BoxShape.circle,
-              ),
-            ),
-            calendarBuilders: CalendarBuilders(
-              markerBuilder: (context, day, events) {
-                if (events.isNotEmpty) {
-                  final joinedEventsOnDay = events.where((event) {
-                    final attendees = (event as Map<String, dynamic>)['attendees'] as List? ?? [];
-                    return attendees.contains(widget.userId);
-                  }).toList();
-
-                  return Positioned(
-                    right: 1,
-                    bottom: 1,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (events.isNotEmpty)
-                          Container(
-                            width: 7.0,
-                            height: 7.0,
-                            margin: const EdgeInsets.symmetric(horizontal: 0.5),
-                            decoration: BoxDecoration(
-                              color: theme.colorScheme.primary.withOpacity(0.7),
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                        if (joinedEventsOnDay.isNotEmpty)
-                          Container(
-                            width: 7.0,
-                            height: 7.0,
-                            margin: const EdgeInsets.symmetric(horizontal: 0.5),
-                            decoration: BoxDecoration(
-                              color: theme.colorScheme.secondary,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                      ],
+      body: _isLoadingEvents
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
+              children: [
+                TableCalendar(
+                  focusedDay: _focusedDay,
+                  firstDay: DateTime.utc(2020, 1, 1),
+                  lastDay: DateTime.utc(2100, 12, 31),
+                  selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
+                  onDaySelected: (selectedDay, focusedDay) {
+                    setState(() {
+                      _selectedDay = selectedDay;
+                      _focusedDay = focusedDay;
+                    });
+                  },
+                  eventLoader: _getEventsForDay,
+                  calendarStyle: CalendarStyle(
+                    markerDecoration: BoxDecoration(
+                      color: theme.colorScheme.primary.withOpacity(0.7),
+                      shape: BoxShape.circle,
                     ),
-                  );
-                }
-                return null;
-              },
-            ),
-          ),
-          const SizedBox(height: 8),
-          Expanded(
-            child: _selectedDay == null
-                ? const Center(child: Text("Select a date to view events."))
-                : _getEventsForDay(_selectedDay!).isEmpty
-                    ? Center(child: Text("No events on ${DateFormat('dd MMM yyyy').format(_selectedDay!)}."))
-                    : ListView(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        children: _getEventsForDay(_selectedDay!).map((event) {
-                          final startTimeStamp = event['startTime'] as Timestamp?;
-                          final endTimeStamp = event['endTime'] as Timestamp?;
+                    selectedDecoration: BoxDecoration(
+                      color: theme.colorScheme.primary,
+                      shape: BoxShape.circle,
+                    ),
+                    todayDecoration: BoxDecoration(
+                      color: theme.colorScheme.primary.withOpacity(0.5),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  headerStyle: HeaderStyle(
+                    formatButtonVisible: false,
+                    titleCentered: true,
+                    titleTextStyle: theme.textTheme.titleMedium!.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  calendarBuilders: CalendarBuilders(
+                    markerBuilder: (context, day, events) {
+                      if (events.isEmpty) {
+                        return null;
+                      }
 
-                          final start = startTimeStamp?.toDate().toLocal() ?? DateTime.now();
-                          final end = endTimeStamp?.toDate().toLocal() ?? DateTime.now();
+                      final hasJoinedEvent = events.any((event) {
+                        final attendees = (event as Map<String, dynamic>)['attendees'] as List? ?? [];
+                        return attendees.contains(widget.userId);
+                      });
 
-                          final entryFeeMap = event['entryFee'] as Map<String, dynamic>?;
-                          final attendees = event['attendees'] as List? ?? [];
-
-                          final locationParts = <String>[];
-                          if (event['venue'] != null && event['venue'].isNotEmpty) {
-                            locationParts.add(event['venue']);
-                          }
-                          final locationData = event['location'] as Map<String, dynamic>?;
-                          if (locationData != null) {
-                            if (locationData['city'] != null && locationData['city'].isNotEmpty) {
-                              locationParts.add(locationData['city']);
-                            }
-                            if (locationData['state'] != null && locationData['state'].isNotEmpty) {
-                              locationParts.add(locationData['state']);
-                            }
-                            if (locationData['country'] != null && locationData['country'].isNotEmpty) {
-                              locationParts.add(locationData['country']);
-                            }
-                          }
-                          final locationString = locationParts.join(', ');
-
-                          return Card(
-                            margin: const EdgeInsets.symmetric(vertical: 8),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            elevation: 1,
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    event['title'] ?? 'Untitled Event',
-                                    style: theme.textTheme.titleMedium?.copyWith(
-                                      fontWeight: FontWeight.bold,
-                                      color: theme.colorScheme.onSurface,
-                                    ),
-                                  ),
-                                  if (event['communityName'] != null && event['communityName'].isNotEmpty) ...[
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      'Community: ${event['communityName']}',
-                                      style: theme.textTheme.bodySmall?.copyWith(
-                                        color: theme.colorScheme.onSurfaceVariant,
-                                      ),
-                                    ),
-                                  ],
-                                  if (event['description'] != null && event['description'].isNotEmpty) ...[
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      event['description'],
-                                      style: theme.textTheme.bodyMedium?.copyWith(
-                                        color: theme.colorScheme.onSurface.withOpacity(0.8),
-                                      ),
-                                    ),
-                                  ],
-                                  const SizedBox(height: 8),
-                                  _buildDetailRow(
-                                    context,
-                                    Icons.access_time_rounded,
-                                    'Time:',
-                                    '${DateFormat.jm().format(start)} - ${DateFormat.jm().format(end)}',
-                                  ),
-                                  _buildDetailRow(
-                                    context,
-                                    Icons.payments_rounded,
-                                    'Entry Fee:',
-                                    _formatEntryFee(entryFeeMap),
-                                  ),
-                                  _buildDetailRow(
-                                    context,
-                                    Icons.location_on_rounded,
-                                    'Location:',
-                                    locationString.isNotEmpty ? locationString : 'TBD',
-                                  ),
-                                  InkWell(
-                                    onTap: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (_) => EventListPage(
-                                            communityId: event['communityId'],
-                                            eventId: event['eventId'],
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(vertical: 4.0),
-                                      child: Text(
-                                        'Attendees: ${attendees.length} '
-                                        '${(event['maxAttendees'] != null && event['maxAttendees'] > 0) ? '/ ${event['maxAttendees']}' : ''}',
-                                        style: theme.textTheme.bodySmall?.copyWith(
-                                          color: theme.colorScheme.primary,
-                                          decoration: TextDecoration.underline,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                      return Positioned(
+                        top: 4,
+                        right: 4,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 6.0,
+                              height: 6.0,
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.primary,
+                                shape: BoxShape.circle,
                               ),
                             ),
-                          );
-                        }).toList(),
-                      ),
-          ),
-        ],
-      ),
+                            if (hasJoinedEvent)
+                              const SizedBox(width: 4),
+                            if (hasJoinedEvent)
+                              Container(
+                                width: 6.0,
+                                height: 6.0,
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.tertiary,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: _selectedDay == null
+                      ? const Center(child: Text("Select a date to view events."))
+                      : _getEventsForDay(_selectedDay!).isEmpty
+                          ? Center(child: Text("No events on ${DateFormat('dd MMM yyyy').format(_selectedDay!)}."))
+                          : ListView(
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              children: _getEventsForDay(_selectedDay!).map((event) {
+                                final startTimeStamp = event['startTime'] as Timestamp?;
+                                final endTimeStamp = event['endTime'] as Timestamp?;
+
+                                final start = startTimeStamp?.toDate().toLocal() ?? DateTime.now();
+                                final end = endTimeStamp?.toDate().toLocal() ?? DateTime.now();
+
+                                final entryFeeMap = event['entryFee'] as Map<String, dynamic>?;
+                                final attendees = event['attendees'] as List? ?? [];
+
+                                final locationParts = <String>[];
+                                if (event['venue'] != null && event['venue'].isNotEmpty) {
+                                  locationParts.add(event['venue']);
+                                }
+                                final locationData = event['location'] as Map<String, dynamic>?;
+                                if (locationData != null) {
+                                  if (locationData['city'] != null && locationData['city'].isNotEmpty) {
+                                    locationParts.add(locationData['city']);
+                                  }
+                                  if (locationData['state'] != null && locationData['state'].isNotEmpty) {
+                                    locationParts.add(locationData['state']);
+                                  }
+                                  if (locationData['country'] != null && locationData['country'].isNotEmpty) {
+                                    locationParts.add(locationData['country']);
+                                  }
+                                }
+                                final locationString = locationParts.join(', ');
+
+                                return Card(
+                                  margin: const EdgeInsets.symmetric(vertical: 8),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  elevation: 1,
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(16),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          event['title'] ?? 'Untitled Event',
+                                          style: theme.textTheme.titleMedium?.copyWith(
+                                                fontWeight: FontWeight.bold,
+                                                color: theme.colorScheme.onSurface,
+                                              ),
+                                        ),
+                                        if (event['communityName'] != null && event['communityName'].isNotEmpty) ...[
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            'Community: ${event['communityName']}',
+                                            style: theme.textTheme.bodySmall?.copyWith(
+                                                  color: theme.colorScheme.onSurfaceVariant,
+                                                ),
+                                          ),
+                                        ],
+                                        if (event['description'] != null && event['description'].isNotEmpty) ...[
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            event['description'],
+                                            style: theme.textTheme.bodyMedium?.copyWith(
+                                                  color: theme.colorScheme.onSurface.withOpacity(0.8),
+                                                ),
+                                          ),
+                                        ],
+                                        const SizedBox(height: 8),
+                                        _buildDetailRow(
+                                          context,
+                                          Icons.access_time_rounded,
+                                          'Time:',
+                                          '${DateFormat.jm().format(start)} - ${DateFormat.jm().format(end)}',
+                                        ),
+                                        _buildDetailRow(
+                                          context,
+                                          Icons.payments_rounded,
+                                          'Entry Fee:',
+                                          _formatEntryFee(entryFeeMap),
+                                        ),
+                                        _buildDetailRow(
+                                          context,
+                                          Icons.location_on_rounded,
+                                          'Location:',
+                                          locationString.isNotEmpty ? locationString : 'TBD',
+                                        ),
+                                        InkWell(
+                                          onTap: () {
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (_) => EventListPage(
+                                                  communityId: event['communityId'],
+                                                  eventId: event['eventId'],
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(vertical: 4.0),
+                                            child: Text(
+                                              'Attendees: ${attendees.length} '
+                                              '${(event['maxAttendees'] != null && event['maxAttendees'] > 0) ? '/ ${event['maxAttendees']}' : ''}',
+                                              style: theme.textTheme.bodySmall?.copyWith(
+                                                    color: theme.colorScheme.primary,
+                                                    decoration: TextDecoration.underline,
+                                                  ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                ),
+              ],
+            ),
     );
   }
 
@@ -296,17 +331,17 @@ class _EventCalendarPageState extends State<EventCalendarPage> {
           Text(
             label,
             style: theme.textTheme.bodySmall?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: theme.colorScheme.onSurface,
-            ),
+                  fontWeight: FontWeight.w600,
+                  color: theme.colorScheme.onSurface,
+                ),
           ),
           const SizedBox(width: 4),
           Expanded(
             child: Text(
               value,
               style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurface.withOpacity(0.8),
-              ),
+                    color: theme.colorScheme.onSurface.withOpacity(0.8),
+                  ),
               overflow: TextOverflow.ellipsis,
               maxLines: 2,
             ),
