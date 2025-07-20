@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:issho/pages/account.dart';
 import 'package:issho/pages/communities.dart';
 import 'package:issho/pages/community/event_calendar.dart';
 import 'package:issho/pages/notifications.dart';

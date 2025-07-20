@@ -66,7 +66,6 @@ class _EditNotificationsPageState extends State<EditNotificationsPage> {
           .collection('preferences')
           .doc('notifications')
           .set(_prefs, SetOptions(merge: true));
-
     } catch (e) {
       print('Error updating notification preferences: $e');
       if (mounted) {
@@ -99,6 +98,10 @@ class _EditNotificationsPageState extends State<EditNotificationsPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Notification Preferences'),
+        leading: IconButton(
+          icon: const Icon(Icons.navigate_before_rounded),
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())

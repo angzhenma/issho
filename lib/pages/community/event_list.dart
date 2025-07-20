@@ -78,6 +78,10 @@ class _EventListPageState extends State<EventListPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Event Attendees"),
+        leading: IconButton(
+          icon: const Icon(Icons.navigate_before_rounded),
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
       body: FutureBuilder<List<Map<String, dynamic>>>(
         future: _attendeeData,
@@ -109,11 +113,17 @@ class _EventListPageState extends State<EventListPage> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     if (attendee['isAdmin'])
-                      const Icon(Icons.shield_rounded, color: Colors.pinkAccent),
+                      const Icon(
+                        Icons.shield_rounded,
+                        color: Colors.pinkAccent,
+                      ),
                     if (attendee['isPro'])
                       const Padding(
                         padding: EdgeInsets.only(left: 4.0),
-                        child: Icon(Icons.star_rounded, color: Colors.deepPurpleAccent),
+                        child: Icon(
+                          Icons.star_rounded,
+                          color: Colors.deepPurpleAccent,
+                        ),
                       ),
                   ],
                 ),

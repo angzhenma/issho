@@ -35,7 +35,11 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
   String _capitalizeEachWord(String input) {
     return input
         .split(' ')
-        .map((word) => word.isEmpty ? '' : word[0].toUpperCase() + word.substring(1).toLowerCase())
+        .map(
+          (word) => word.isEmpty
+              ? ''
+              : word[0].toUpperCase() + word.substring(1).toLowerCase(),
+        )
         .join(' ');
   }
 
@@ -75,9 +79,9 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
 
       Navigator.pop(context);
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to create community: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to create community: $e')));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -86,15 +90,29 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Create Community')),
+      appBar: AppBar(
+        title: const Text('Create Community'),
+        leading: IconButton(
+          icon: const Icon(Icons.navigate_before_rounded),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Form(
           key: _formKey,
           child: ListView(
             children: [
-              _buildTextField(_nameController, 'Community Name', required: true),
-              _buildTextField(_activityTypeController, 'Activity Type', required: true),
+              _buildTextField(
+                _nameController,
+                'Community Name',
+                required: true,
+              ),
+              _buildTextField(
+                _activityTypeController,
+                'Activity Type',
+                required: true,
+              ),
               _buildTextField(_countryController, 'Country', required: true),
               _buildTextField(_stateController, 'State'),
               _buildTextField(_cityController, 'City (Optional)'),
@@ -111,7 +129,11 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
     );
   }
 
-  Widget _buildTextField(TextEditingController controller, String label, {bool required = false}) {
+  Widget _buildTextField(
+    TextEditingController controller,
+    String label, {
+    bool required = false,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: TextFormField(
@@ -121,7 +143,8 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
           border: const OutlineInputBorder(),
         ),
         validator: required
-            ? (value) => value == null || value.trim().isEmpty ? 'Required' : null
+            ? (value) =>
+                  value == null || value.trim().isEmpty ? 'Required' : null
             : null,
       ),
     );

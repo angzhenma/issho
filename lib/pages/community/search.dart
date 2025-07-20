@@ -40,7 +40,10 @@ class _SearchPageState extends State<SearchPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        leading: const BackButton(),
+        leading: IconButton(
+          icon: const Icon(Icons.navigate_before_rounded),
+          onPressed: () => Navigator.pop(context),
+        ),
         title: TextField(
           controller: _controller,
           decoration: const InputDecoration(
@@ -57,9 +60,7 @@ class _SearchPageState extends State<SearchPage> {
                 child: Container(
                   padding: const EdgeInsets.all(16.0),
                   decoration: BoxDecoration(
-                    color: Colors.amber.withOpacity(
-                      0.15,
-                    ),
+                    color: Colors.amber.withOpacity(0.15),
                     borderRadius: BorderRadius.circular(8.0),
                     border: Border.all(color: Colors.amber, width: 1.0),
                   ),
@@ -75,8 +76,9 @@ class _SearchPageState extends State<SearchPage> {
                       Expanded(
                         child: Text(
                           'All searches are case-sensitive! \nPlease use exact capitalization to find accurate matches.',
-                          style: Theme.of(context).textTheme.bodySmall!
-                              .copyWith(color: Colors.white),
+                          style: Theme.of(
+                            context,
+                          ).textTheme.bodySmall!.copyWith(color: Colors.white),
                           textAlign: TextAlign.justify,
                         ),
                       ),

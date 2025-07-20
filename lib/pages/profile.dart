@@ -214,7 +214,7 @@ class _ProfilePageState extends State<ProfilePage> {
                               const Icon(
                                 Icons.star_rounded,
                                 size: 18,
-                                color: Colors.amberAccent,
+                                color: Colors.deepPurpleAccent,
                               ),
                           ],
                         ),

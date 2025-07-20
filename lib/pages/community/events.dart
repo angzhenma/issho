@@ -63,6 +63,10 @@ class _EventPageState extends State<EventPage> {
         title: Text(
           _communityName.isNotEmpty ? _communityName : 'Community Events',
         ),
+        leading: IconButton(
+          icon: const Icon(Icons.navigate_before_rounded),
+          onPressed: () => Navigator.pop(context),
+        ),
         actions: [
           FutureBuilder<DocumentSnapshot>(
             future: FirebaseFirestore.instance
@@ -154,8 +158,10 @@ class _EventPageState extends State<EventPage> {
                     String entryFeeString;
                     if ((entryFeeMap?['amount'] as num? ?? 0) == 0) {
                       entryFeeString = 'Free!';
-                    } else if (entryFeeMap != null && entryFeeMap['amount'] != null) {
-                      final amount = (entryFeeMap['amount'] as num).toStringAsFixed(2);
+                    } else if (entryFeeMap != null &&
+                        entryFeeMap['amount'] != null) {
+                      final amount = (entryFeeMap['amount'] as num)
+                          .toStringAsFixed(2);
                       final currency = entryFeeMap['currency'] as String? ?? '';
                       entryFeeString = '$currency $amount';
                     } else {
