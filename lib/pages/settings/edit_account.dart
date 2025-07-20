@@ -210,9 +210,9 @@ class _EditAccountPageState extends State<EditAccountPage> {
 
     if (members.length == 1 && members.first == _user.uid) {
       final confirm = await _showConfirmDialog(
-        title: 'Delete Community?',
+        title: 'Hold on!',
         content:
-            'You are the only member in this community. Leaving will delete the community. Continue?',
+            'You are the only member in this community. Leaving will delete the community!',
       );
       if (confirm) {
         await FirebaseFirestore.instance
@@ -276,7 +276,7 @@ class _EditAccountPageState extends State<EditAccountPage> {
               ),
               ElevatedButton(
                 onPressed: () => Navigator.pop(context, true),
-                child: const Text('Confirm'),
+                child: const Text('Delete'),
               ),
             ],
           ),

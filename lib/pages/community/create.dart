@@ -96,7 +96,7 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
               _buildTextField(_nameController, 'Community Name', required: true),
               _buildTextField(_activityTypeController, 'Activity Type', required: true),
               _buildTextField(_countryController, 'Country', required: true),
-              _buildTextField(_stateController, 'State (Optional)'),
+              _buildTextField(_stateController, 'State'),
               _buildTextField(_cityController, 'City (Optional)'),
               const SizedBox(height: 24),
               AppButton(
