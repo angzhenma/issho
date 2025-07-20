@@ -7,6 +7,7 @@ import 'package:issho/models/button.dart';
 import 'package:issho/pages/community/chat.dart';
 import 'package:issho/pages/community/create.dart';
 import 'package:issho/pages/profile.dart';
+import 'package:issho/themes/theme_colors.dart';
 
 class SearchPage extends StatefulWidget {
   const SearchPage({super.key});
@@ -60,25 +61,25 @@ class _SearchPageState extends State<SearchPage> {
                 child: Container(
                   padding: const EdgeInsets.all(16.0),
                   decoration: BoxDecoration(
-                    color: Colors.amber.withOpacity(0.15),
+                    color: AppColors.lightSecondary.withOpacity(0.10),
                     borderRadius: BorderRadius.circular(8.0),
-                    border: Border.all(color: Colors.amber, width: 1.0),
+                    border: Border.all(color: AppColors.darkPrimary, width: 1.0),
                   ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Icon(
                         Icons.warning_rounded,
-                        color: Colors.amber,
+                        color: Colors.amberAccent,
                         size: 24,
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
-                          'All searches are case-sensitive! \nPlease use exact capitalization to find accurate matches.',
+                          'All searches are case sensitive! \nPlease use exact capitalization to find accurate matches.',
                           style: Theme.of(
                             context,
-                          ).textTheme.bodySmall!.copyWith(color: Colors.white),
+                          ).textTheme.bodySmall!.copyWith(color: AppColors.lightPrimary),
                           textAlign: TextAlign.justify,
                         ),
                       ),
