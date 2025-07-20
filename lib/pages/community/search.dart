@@ -256,7 +256,7 @@ class _SearchPageState extends State<SearchPage> {
                             builder: (_) => AlertDialog(
                               title: Text('Join ${doc['name']}?'),
                               content: const Text(
-                                'You need to join this community to chat with members.',
+                                'No sneak peeks! You need to join the community to view it.',
                               ),
                               actions: [
                                 TextButton(

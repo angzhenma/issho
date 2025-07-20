@@ -1,4 +1,4 @@
-// ignore_for_file: unused_local_variable
+// ignore_for_file: unused_local_variable, unnecessary_brace_in_string_interps
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:issho/models/button.dart';
 import 'package:issho/models/text_field.dart';
+import 'package:flutter_typeahead/flutter_typeahead.dart';
 
 class EditAccountPage extends StatefulWidget {
   const EditAccountPage({super.key});
@@ -22,7 +23,8 @@ class _EditAccountPageState extends State<EditAccountPage> {
   final _cityController = TextEditingController();
   final _stateController = TextEditingController();
   final _countryController = TextEditingController();
-  final _interestsController = TextEditingController();
+  final TextEditingController _interestsTypeAheadController =
+      TextEditingController();
   DateTime? _selectedDob;
 
   List<String> _interests = [];
@@ -44,7 +46,7 @@ class _EditAccountPageState extends State<EditAccountPage> {
     _cityController.dispose();
     _stateController.dispose();
     _countryController.dispose();
-    _interestsController.dispose();
+    _interestsTypeAheadController.dispose();
     super.dispose();
   }
 
@@ -52,21 +54,26 @@ class _EditAccountPageState extends State<EditAccountPage> {
     return input
         .trim()
         .split(' ')
-        .map((word) =>
-            word.isNotEmpty ? word[0].toUpperCase() + word.substring(1).toLowerCase() : '')
+        .map(
+          (word) => word.isNotEmpty
+              ? word[0].toUpperCase() + word.substring(1).toLowerCase()
+              : '',
+        )
         .join(' ');
   }
 
-  void _addInterest() {
-    final raw = _interestsController.text.trim();
-    if (raw.isEmpty) return;
-    final capitalized = capitalizeEachWord(raw);
+  void _addInterest(String rawInterest) {
+    final capitalized = capitalizeEachWord(rawInterest);
+
+    if (capitalized.isEmpty) return;
 
     if (!_interests.contains(capitalized)) {
       setState(() {
         _interests.add(capitalized);
-        _interestsController.clear();
+        _interestsTypeAheadController.clear();
       });
+    } else {
+      _interestsTypeAheadController.clear();
     }
   }
 
@@ -74,8 +81,34 @@ class _EditAccountPageState extends State<EditAccountPage> {
     setState(() => _interests.remove(interest));
   }
 
+  Future<List<String>> _getInterestSuggestions(String pattern) async {
+    if (pattern.isEmpty) {
+      return const [];
+    }
+
+    final lowerCasePattern = pattern.toLowerCase();
+
+    final querySnapshot = await FirebaseFirestore.instance
+        .collection('interests')
+        .where('activity', isGreaterThanOrEqualTo: lowerCasePattern)
+        .where('activity', isLessThanOrEqualTo: '${lowerCasePattern}\uf8ff')
+        .orderBy('activity')
+        .limit(10)
+        .get();
+
+    final suggestions = querySnapshot.docs
+        .map((doc) => capitalizeEachWord(doc['activity'] as String))
+        .where((interest) => !_interests.contains(interest))
+        .toList();
+
+    return suggestions;
+  }
+
   Future<void> _loadUserInfo() async {
-    final userDoc = await FirebaseFirestore.instance.collection('users').doc(_user.uid).get();
+    final userDoc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(_user.uid)
+        .get();
     final userData = userDoc.data()!;
 
     _fullNameController.text = userData['fullName'] ?? '';
@@ -84,7 +117,9 @@ class _EditAccountPageState extends State<EditAccountPage> {
     _cityController.text = userData['city'] ?? '';
     _stateController.text = userData['state'] ?? '';
     _countryController.text = userData['country'] ?? '';
-    _selectedDob = userData['dob'] != null ? (userData['dob'] as Timestamp).toDate() : null;
+    _selectedDob = userData['dob'] != null
+        ? (userData['dob'] as Timestamp).toDate()
+        : null;
     _interests = List<String>.from(userData['interests'] ?? []);
 
     final communities = await FirebaseFirestore.instance
@@ -112,21 +147,25 @@ class _EditAccountPageState extends State<EditAccountPage> {
     setState(() => _isLoading = true);
 
     try {
-      await FirebaseFirestore.instance.collection('users').doc(_user.uid).update({
-        'fullName': _fullNameController.text.trim(),
-        'displayName': _displayNameController.text.trim(),
-        'bio': _bioController.text.trim(),
-        'city': capitalizeEachWord(_cityController.text),
-        'state': capitalizeEachWord(_stateController.text),
-        'country': capitalizeEachWord(_countryController.text),
-        'interests': _interests,
-        'dob': _selectedDob,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(_user.uid)
+          .update({
+            'fullName': _fullNameController.text.trim(),
+            'displayName': _displayNameController.text.trim(),
+            'bio': _bioController.text.trim(),
+            'city': capitalizeEachWord(_cityController.text),
+            'state': capitalizeEachWord(_stateController.text),
+            'country': capitalizeEachWord(_countryController.text),
+            'interests': _interests,
+            'dob': _selectedDob,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
 
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Profile updated successfully!')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Profile updated successfully!')),
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -176,47 +215,69 @@ class _EditAccountPageState extends State<EditAccountPage> {
             'You are the only member in this community. Leaving will delete the community. Continue?',
       );
       if (confirm) {
-        await FirebaseFirestore.instance.collection('communities').doc(communityId).delete();
+        await FirebaseFirestore.instance
+            .collection('communities')
+            .doc(communityId)
+            .delete();
         _loadUserInfo();
       }
       return;
     }
 
-    await FirebaseFirestore.instance.collection('communities').doc(communityId).update({
-      'members': FieldValue.arrayRemove([_user.uid]),
-      'admins': FieldValue.arrayRemove([_user.uid]),
-      'pros': FieldValue.arrayRemove([_user.uid]),
-    });
+    await FirebaseFirestore.instance
+        .collection('communities')
+        .doc(communityId)
+        .update({
+          'members': FieldValue.arrayRemove([_user.uid]),
+          'admins': FieldValue.arrayRemove([_user.uid]),
+          'pros': FieldValue.arrayRemove([_user.uid]),
+        });
 
     if (mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Left community: ${data['name']}')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Left community: ${data['name']}')),
+      );
     }
     _loadUserInfo();
   }
 
-  Future<void> _showDialog({required String title, required String content}) async {
+  Future<void> _showDialog({
+    required String title,
+    required String content,
+  }) async {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
         title: Text(title),
         content: Text(content),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
         ],
       ),
     );
   }
 
-  Future<bool> _showConfirmDialog({required String title, required String content}) async {
+  Future<bool> _showConfirmDialog({
+    required String title,
+    required String content,
+  }) async {
     return await showDialog<bool>(
           context: context,
           builder: (_) => AlertDialog(
             title: Text(title),
             content: Text(content),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-              ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text('Confirm')),
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Confirm'),
+              ),
             ],
           ),
         ) ??
@@ -243,15 +304,17 @@ class _EditAccountPageState extends State<EditAccountPage> {
                         AppTextField(
                           label: 'Full Name',
                           controller: _fullNameController,
-                          validator: (val) =>
-                              val == null || val.trim().isEmpty ? 'Full Name is required' : null,
+                          validator: (val) => val == null || val.trim().isEmpty
+                              ? 'Full Name is required'
+                              : null,
                         ),
                         const SizedBox(height: 16),
                         AppTextField(
                           label: 'Display Name',
                           controller: _displayNameController,
-                          validator: (val) =>
-                              val == null || val.trim().isEmpty ? 'Display Name is required' : null,
+                          validator: (val) => val == null || val.trim().isEmpty
+                              ? 'Display Name is required'
+                              : null,
                         ),
                         const SizedBox(height: 16),
                         AppTextField(
@@ -276,18 +339,62 @@ class _EditAccountPageState extends State<EditAccountPage> {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            TextFormField(
-                              controller: _interestsController,
-                              decoration: InputDecoration(
-                                labelText: 'Add Interests',
-                                prefixIcon: const Icon(Icons.interests_rounded),
-                                suffixIcon: IconButton(
-                                  icon: const Icon(Icons.add_rounded),
-                                  onPressed: _addInterest,
-                                ),
-                                border: const OutlineInputBorder(),
+                            TypeAheadField<String>(
+                              controller: _interestsTypeAheadController,
+                              builder: (context, controller, focusNode) {
+                                return TextFormField(
+                                  controller: controller,
+                                  focusNode: focusNode,
+                                  decoration: InputDecoration(
+                                    labelText: 'Add Interests',
+                                    prefixIcon: const Icon(
+                                      Icons.interests_rounded,
+                                    ),
+                                    suffixIcon: IconButton(
+                                      icon: const Icon(Icons.add_rounded),
+                                      onPressed: () =>
+                                          _addInterest(controller.text.trim()),
+                                    ),
+                                    border: const OutlineInputBorder(),
+                                  ),
+                                  onFieldSubmitted: (value) =>
+                                      _addInterest(value),
+                                );
+                              },
+                              suggestionsCallback: _getInterestSuggestions,
+                              itemBuilder: (context, suggestion) {
+                                return ListTile(title: Text(suggestion));
+                              },
+                              onSelected: (suggestion) {
+                                _addInterest(suggestion);
+                              },
+                              emptyBuilder: (context) {
+                                if (_interestsTypeAheadController
+                                        .text
+                                        .isNotEmpty &&
+                                    !_interests.contains(
+                                      capitalizeEachWord(
+                                        _interestsTypeAheadController.text
+                                            .trim(),
+                                      ),
+                                    )) {
+                                  return Padding(
+                                    padding: const EdgeInsets.all(8.0),
+                                    child: Text(
+                                      'No suggestions found. Press + to add "${_interestsTypeAheadController.text.trim()}" as a new interest.',
+                                      style: TextStyle(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onSurfaceVariant,
+                                      ),
+                                    ),
+                                  );
+                                }
+                                return const SizedBox.shrink();
+                              },
+                              debounceDuration: const Duration(
+                                milliseconds: 300,
                               ),
-                              onFieldSubmitted: (_) => _addInterest(),
                             ),
                             const SizedBox(height: 8),
                             Wrap(
@@ -297,7 +404,8 @@ class _EditAccountPageState extends State<EditAccountPage> {
                                   .map(
                                     (interest) => Chip(
                                       label: Text(interest),
-                                      onDeleted: () => _removeInterest(interest),
+                                      onDeleted: () =>
+                                          _removeInterest(interest),
                                     ),
                                   )
                                   .toList(),
@@ -308,22 +416,25 @@ class _EditAccountPageState extends State<EditAccountPage> {
                         AppTextField(
                           label: 'City',
                           controller: _cityController,
-                          validator: (val) =>
-                              val == null || val.trim().isEmpty ? 'City is required' : null,
+                          validator: (val) => val == null || val.trim().isEmpty
+                              ? 'City is required'
+                              : null,
                         ),
                         const SizedBox(height: 16),
                         AppTextField(
                           label: 'State/Province',
                           controller: _stateController,
-                          validator: (val) =>
-                              val == null || val.trim().isEmpty ? 'State/Province is required' : null,
+                          validator: (val) => val == null || val.trim().isEmpty
+                              ? 'State/Province is required'
+                              : null,
                         ),
                         const SizedBox(height: 16),
                         AppTextField(
                           label: 'Country',
                           controller: _countryController,
-                          validator: (val) =>
-                              val == null || val.trim().isEmpty ? 'Country is required' : null,
+                          validator: (val) => val == null || val.trim().isEmpty
+                              ? 'Country is required'
+                              : null,
                         ),
                         const SizedBox(height: 32),
                         AppButton(
@@ -359,9 +470,14 @@ class _EditAccountPageState extends State<EditAccountPage> {
                         margin: const EdgeInsets.symmetric(vertical: 4),
                         child: ListTile(
                           title: Text(data['name'] ?? 'Untitled Community'),
-                          subtitle: Text(data['activityType'] ?? 'No activity type'),
+                          subtitle: Text(
+                            data['activityType'] ?? 'No activity type',
+                          ),
                           trailing: IconButton(
-                            icon: const Icon(Icons.exit_to_app_rounded, color: Colors.redAccent),
+                            icon: const Icon(
+                              Icons.exit_to_app_rounded,
+                              color: Colors.redAccent,
+                            ),
                             onPressed: () => _attemptLeaveCommunity(doc),
                             tooltip: 'Leave Community',
                           ),
