@@ -254,7 +254,8 @@ class _ChatPageState extends State<ChatPage> {
                 if (docs.isEmpty) {
                   return const Center(
                     child: Text(
-                      "It's quiet in here... Anyone got a good conversation starter?",
+                      "It's quiet in here...\nAnyone got a good conversation starter?",
+                      textAlign: TextAlign.center,
                     ),
                   );
                 }
@@ -286,7 +287,7 @@ class _ChatPageState extends State<ChatPage> {
                   child: TextField(
                     controller: _controller,
                     decoration: const InputDecoration(
-                      hintText: 'Type a message...',
+                      hintText: 'Message',
                     ),
                   ),
                 ),

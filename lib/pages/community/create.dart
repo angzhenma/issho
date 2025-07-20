@@ -1,7 +1,8 @@
-// ignore_for_file: use_build_context_synchronously
+// ignore_for_file: use_build_context_synchronously, unused_field
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:issho/models/button.dart';
 
 class CreateCommunityPage extends StatefulWidget {
   final String userId;
@@ -19,7 +20,6 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
   final _countryController = TextEditingController();
   final _stateController = TextEditingController();
   final _cityController = TextEditingController();
-
   bool _isLoading = false;
 
   @override
@@ -99,16 +99,10 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
               _buildTextField(_stateController, 'State (Optional)'),
               _buildTextField(_cityController, 'City (Optional)'),
               const SizedBox(height: 24),
-              ElevatedButton.icon(
-                onPressed: _isLoading ? null : _createCommunity,
-                icon: _isLoading
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.group_add_rounded),
-                label: const Text('Create Community'),
+              AppButton(
+                onPressed: _createCommunity,
+                icon: Icons.group_add_rounded,
+                label: 'Create Community',
               ),
             ],
           ),

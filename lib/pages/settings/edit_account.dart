@@ -197,16 +197,16 @@ class _EditAccountPageState extends State<EditAccountPage> {
     final pros = List<String>.from(data['pros'] ?? []);
     final communityId = community.id;
 
-    if (admins.length == 1 && admins.first == _user.uid) {
-      if (mounted) {
-        _showDialog(
-          title: 'Cannot Leave',
-          content:
-              'You are the only admin in this community. Please assign another admin before leaving.',
-        );
-      }
-      return;
-    }
+    // if (admins.length == 1 && admins.first == _user.uid) {
+    //   if (mounted) {
+    //     _showDialog(
+    //       title: 'Hold on!',
+    //       content:
+    //           'You are the only admin in this community. Please assign another admin before leaving or the community will be deleted.',
+    //     );
+    //   }
+    //   return;
+    // }
 
     if (members.length == 1 && members.first == _user.uid) {
       final confirm = await _showConfirmDialog(
@@ -241,24 +241,24 @@ class _EditAccountPageState extends State<EditAccountPage> {
     _loadUserInfo();
   }
 
-  Future<void> _showDialog({
-    required String title,
-    required String content,
-  }) async {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: Text(title),
-        content: Text(content),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
-  }
+  // Future<void> _showDialog({
+  //   required String title,
+  //   required String content,
+  // }) async {
+  //   showDialog(
+  //     context: context,
+  //     builder: (_) => AlertDialog(
+  //       title: Text(title),
+  //       content: Text(content),
+  //       actions: [
+  //         TextButton(
+  //           onPressed: () => Navigator.pop(context),
+  //           child: const Text('OK'),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
 
   Future<bool> _showConfirmDialog({
     required String title,
