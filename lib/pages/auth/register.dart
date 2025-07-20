@@ -80,7 +80,6 @@ class _RegisterPageState extends State<RegisterPage> {
     setState(() => interests.remove(interest));
   }
 
-  // Function to fetch suggestions from Firebase based on the 'activity' field
   Future<List<String>> _getInterestSuggestions(String pattern) async {
     if (pattern.isEmpty) {
       return const [];
@@ -106,8 +105,6 @@ class _RegisterPageState extends State<RegisterPage> {
 
   Future<void> _register() async {
     if (!_formKey.currentState!.validate() || _selectedDob == null) return;
-
-    // Add any remaining text in the interest field as a final interest
     if (_interestsTypeAheadController.text.trim().isNotEmpty) {
       _addInterest(_interestsTypeAheadController.text.trim());
     }
@@ -123,16 +120,10 @@ class _RegisterPageState extends State<RegisterPage> {
 
       final uid = credential.user!.uid;
       final timestamp = FieldValue.serverTimestamp();
-
-      // --- Corrected Firebase Batch Write for Interests Update ---
       final WriteBatch batch = FirebaseFirestore.instance.batch();
 
       for (final interest in interests) {
         final lowerCaseInterest = interest.toLowerCase();
-
-        // Query to find if the activity already exists
-        // This query must be executed outside the batch for now because
-        // batch.get() is not available and transaction.get() only accepts DocumentReference.
         final existingDocs = await FirebaseFirestore.instance
             .collection('interests')
             .where('activity', isEqualTo: lowerCaseInterest)
@@ -140,13 +131,11 @@ class _RegisterPageState extends State<RegisterPage> {
             .get();
 
         if (existingDocs.docs.isNotEmpty) {
-          // Activity exists, update its 'users' array
           final docRef = existingDocs.docs.first.reference;
           batch.update(docRef, {
             'users': FieldValue.arrayUnion([uid]),
           });
         } else {
-          // Activity does not exist, create a new document with an auto-ID
           final newInterestRef = FirebaseFirestore.instance.collection('interests').doc();
           batch.set(newInterestRef, {
             'activity': lowerCaseInterest,
@@ -154,15 +143,13 @@ class _RegisterPageState extends State<RegisterPage> {
           });
         }
       }
-      await batch.commit(); // Commit all batched updates/creations
-      // --- End Firebase Batch Write for Interests Update ---
+      await batch.commit();
 
-      // Create the user document
       await FirebaseFirestore.instance.collection('users').doc(uid).set({
         'email': _emailController.text.trim(),
         'fullName': _fullNameController.text.trim(),
         'displayName': _displayNameController.text.trim(),
-        'interests': interests, // Store as capitalized in user document
+        'interests': interests,
         'city': capitalizeEachWord(_cityController.text),
         'state': capitalizeEachWord(_stateController.text),
         'country': capitalizeEachWord(_countryController.text),
@@ -264,7 +251,6 @@ class _RegisterPageState extends State<RegisterPage> {
                 AppTextField(label: 'Display Name', controller: _displayNameController),
                 const SizedBox(height: 16),
 
-                // DOB Picker
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   title: Text(_selectedDob == null
@@ -277,7 +263,6 @@ class _RegisterPageState extends State<RegisterPage> {
                 ),
 
                 const SizedBox(height: 16),
-                // Interests Input using TypeAheadField
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
