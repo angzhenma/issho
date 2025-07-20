@@ -1,4 +1,4 @@
-// ignore_for_file: unused_local_variable
+// ignore_for_file: unused_local_variable, unnecessary_brace_in_string_interps
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -6,12 +6,13 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:issho/models/button.dart';
 import 'package:issho/models/text_field.dart';
+import 'package:flutter_typeahead/flutter_typeahead.dart';
 
 // Programmer Name: Mr. Ibrahim Azaan Mauroof
-// Program Name: issho_v2/lib/pages/auth/register_page.dart
+// Program Name: pages/auth/register_page.dart
 // Program Description: Register page of the Issho mobile application.
 // First Written on: Friday, 16-May-2025
-// Last Modified on: Monday, 15-July-2025
+// Last Modified on: Monday, 20-July-2025
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -30,7 +31,7 @@ class _RegisterPageState extends State<RegisterPage> {
   final _cityController = TextEditingController();
   final _stateController = TextEditingController();
   final _countryController = TextEditingController();
-  final _interestsController = TextEditingController();
+  final TextEditingController _interestsTypeAheadController = TextEditingController();
   DateTime? _selectedDob;
 
   final List<String> interests = [];
@@ -46,7 +47,7 @@ class _RegisterPageState extends State<RegisterPage> {
     _cityController.dispose();
     _stateController.dispose();
     _countryController.dispose();
-    _interestsController.dispose();
+    _interestsTypeAheadController.dispose();
     super.dispose();
   }
 
@@ -60,16 +61,18 @@ class _RegisterPageState extends State<RegisterPage> {
         .join(' ');
   }
 
-  void _addInterest() {
-    final raw = _interestsController.text.trim();
-    if (raw.isEmpty) return;
-    final capitalized = capitalizeEachWord(raw);
+  void _addInterest(String rawInterest) {
+    final capitalized = capitalizeEachWord(rawInterest);
+
+    if (capitalized.isEmpty) return;
 
     if (!interests.contains(capitalized)) {
       setState(() {
         interests.add(capitalized);
-        _interestsController.clear();
+        _interestsTypeAheadController.clear();
       });
+    } else {
+      _interestsTypeAheadController.clear();
     }
   }
 
@@ -77,8 +80,37 @@ class _RegisterPageState extends State<RegisterPage> {
     setState(() => interests.remove(interest));
   }
 
+  // Function to fetch suggestions from Firebase based on the 'activity' field
+  Future<List<String>> _getInterestSuggestions(String pattern) async {
+    if (pattern.isEmpty) {
+      return const [];
+    }
+
+    final lowerCasePattern = pattern.toLowerCase();
+
+    final querySnapshot = await FirebaseFirestore.instance
+        .collection('interests')
+        .where('activity', isGreaterThanOrEqualTo: lowerCasePattern)
+        .where('activity', isLessThanOrEqualTo: '${lowerCasePattern}\uf8ff')
+        .orderBy('activity')
+        .limit(10)
+        .get();
+
+    final suggestions = querySnapshot.docs
+        .map((doc) => capitalizeEachWord(doc['activity'] as String))
+        .where((interest) => !interests.contains(interest))
+        .toList();
+
+    return suggestions;
+  }
+
   Future<void> _register() async {
     if (!_formKey.currentState!.validate() || _selectedDob == null) return;
+
+    // Add any remaining text in the interest field as a final interest
+    if (_interestsTypeAheadController.text.trim().isNotEmpty) {
+      _addInterest(_interestsTypeAheadController.text.trim());
+    }
 
     setState(() => _isLoading = true);
 
@@ -92,11 +124,45 @@ class _RegisterPageState extends State<RegisterPage> {
       final uid = credential.user!.uid;
       final timestamp = FieldValue.serverTimestamp();
 
+      // --- Corrected Firebase Batch Write for Interests Update ---
+      final WriteBatch batch = FirebaseFirestore.instance.batch();
+
+      for (final interest in interests) {
+        final lowerCaseInterest = interest.toLowerCase();
+
+        // Query to find if the activity already exists
+        // This query must be executed outside the batch for now because
+        // batch.get() is not available and transaction.get() only accepts DocumentReference.
+        final existingDocs = await FirebaseFirestore.instance
+            .collection('interests')
+            .where('activity', isEqualTo: lowerCaseInterest)
+            .limit(1)
+            .get();
+
+        if (existingDocs.docs.isNotEmpty) {
+          // Activity exists, update its 'users' array
+          final docRef = existingDocs.docs.first.reference;
+          batch.update(docRef, {
+            'users': FieldValue.arrayUnion([uid]),
+          });
+        } else {
+          // Activity does not exist, create a new document with an auto-ID
+          final newInterestRef = FirebaseFirestore.instance.collection('interests').doc();
+          batch.set(newInterestRef, {
+            'activity': lowerCaseInterest,
+            'users': [uid],
+          });
+        }
+      }
+      await batch.commit(); // Commit all batched updates/creations
+      // --- End Firebase Batch Write for Interests Update ---
+
+      // Create the user document
       await FirebaseFirestore.instance.collection('users').doc(uid).set({
         'email': _emailController.text.trim(),
         'fullName': _fullNameController.text.trim(),
         'displayName': _displayNameController.text.trim(),
-        'interests': interests,
+        'interests': interests, // Store as capitalized in user document
         'city': capitalizeEachWord(_cityController.text),
         'state': capitalizeEachWord(_stateController.text),
         'country': capitalizeEachWord(_countryController.text),
@@ -158,8 +224,6 @@ class _RegisterPageState extends State<RegisterPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Create Account'),
@@ -213,21 +277,50 @@ class _RegisterPageState extends State<RegisterPage> {
                 ),
 
                 const SizedBox(height: 16),
-                // Interests Input
+                // Interests Input using TypeAheadField
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    TextFormField(
-                      controller: _interestsController,
-                      decoration: InputDecoration(
-                        labelText: 'Add Interests',
-                        prefixIcon: const Icon(Icons.interests_rounded),
-                        suffixIcon: IconButton(
-                          icon: const Icon(Icons.add_rounded),
-                          onPressed: _addInterest,
-                        ),
-                      ),
-                      onFieldSubmitted: (_) => _addInterest(),
+                    TypeAheadField<String>(
+                      controller: _interestsTypeAheadController,
+                      builder: (context, controller, focusNode) {
+                        return TextFormField(
+                          controller: controller,
+                          focusNode: focusNode,
+                          decoration: InputDecoration(
+                            labelText: 'Add Interests',
+                            prefixIcon: const Icon(Icons.interests_rounded),
+                            suffixIcon: IconButton(
+                              icon: const Icon(Icons.add_rounded),
+                              onPressed: () => _addInterest(controller.text.trim()),
+                            ),
+                          ),
+                          onFieldSubmitted: (value) => _addInterest(value),
+                        );
+                      },
+                      suggestionsCallback: _getInterestSuggestions,
+                      itemBuilder: (context, suggestion) {
+                        return ListTile(
+                          title: Text(suggestion),
+                        );
+                      },
+                      onSelected: (suggestion) {
+                        _addInterest(suggestion);
+                      },
+                      emptyBuilder: (context) {
+                        if (_interestsTypeAheadController.text.isNotEmpty &&
+                            !interests.contains(capitalizeEachWord(_interestsTypeAheadController.text.trim()))) {
+                          return Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Text(
+                              'No suggestions found. Press + to add "${_interestsTypeAheadController.text.trim()}" as a new interest.',
+                              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                            ),
+                          );
+                        }
+                        return const SizedBox.shrink();
+                      },
+                      debounceDuration: const Duration(milliseconds: 300),
                     ),
                     const SizedBox(height: 8),
                     Wrap(

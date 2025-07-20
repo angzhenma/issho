@@ -2,6 +2,12 @@
 
 import 'package:flutter/material.dart';
 
+// Programmer Name: Mr. Ibrahim Azaan Mauroof
+// Program Name: pages/auth/login.dart
+// Program Description: Reusable button class for uniform styling.
+// First Written on: Sunday, 6-July-2025
+// Last Modified on: Monday, 20-July-2025
+
 class AppButton extends StatelessWidget {
   final String label;
   final IconData? icon;

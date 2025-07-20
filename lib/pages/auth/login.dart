@@ -7,7 +7,7 @@ import 'package:issho/models/button.dart';
 import 'package:issho/models/text_field.dart'; 
 
 // Programmer Name: Mr. Ibrahim Azaan Mauroof
-// Program Name: issho/lib/pages/auth/login.dart
+// Program Name: pages/auth/login.dart
 // Program Description: Login page of the Issho mobile application.
 // First Written on: Friday, 16-May-2025
 // Last Modified on: Monday, 20-July-2025
@@ -55,7 +55,7 @@ class _LoginPageState extends State<LoginPage> {
           message = 'Wrong password provided.';
           break;
         case 'invalid-email':
-          message = 'That email format is invalid.';
+          message = "Looks like your email isn't complete";
           break;
         default:
           message = 'Something went wrong. Please try again.';
@@ -91,7 +91,7 @@ class _LoginPageState extends State<LoginPage> {
       builder: (_) => AlertDialog(
         title: const Text('Reset Password'),
         content: Text(
-          'We’ll send a reset link to:\n\n$email\n\nCheck spam if you don’t see it!',
+          "We'll send a reset link to:\n\n$email\n\nCheck spam if you don't see it!",
         ),
         actions: [
           TextButton(
@@ -132,7 +132,6 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     return Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(
@@ -144,14 +143,14 @@ class _LoginPageState extends State<LoginPage> {
               children: [
                 const SizedBox(height: 40),
                 Text(
-                  'Say Hello to Productivity!',
+                  'Connect to Productivity',
                   style: theme.textTheme.headlineMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Welcome to Issho',
+                  'Welcome to Issho!',
                   style: theme.textTheme.bodyLarge?.copyWith(
                     color: theme.hintColor,
                   ),
@@ -191,7 +190,7 @@ class _LoginPageState extends State<LoginPage> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      "Don't have an account?",
+                      "Don't have an account yet?",
                       style: theme.textTheme.bodyMedium,
                     ),
                     TextButton(
