@@ -1,8 +1,9 @@
-// ignore_for_file: use_build_context_synchronously, unused_local_variable
+// ignore_for_file: use_build_context_synchronously, unused_local_variable, unnecessary_brace_in_string_interps, deprecated_member_use
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:issho/models/button.dart';
 import 'package:issho/pages/community/chat.dart';
 import 'package:issho/pages/community/create.dart';
 import 'package:issho/pages/profile.dart';
@@ -17,7 +18,6 @@ class SearchPage extends StatefulWidget {
 class _SearchPageState extends State<SearchPage> {
   final TextEditingController _controller = TextEditingController();
   String _query = '';
-  final List<String> _history = [];
   final userId = FirebaseAuth.instance.currentUser!.uid;
 
   @override
@@ -44,14 +44,47 @@ class _SearchPageState extends State<SearchPage> {
         title: TextField(
           controller: _controller,
           decoration: const InputDecoration(
-            hintText: 'Search users or communities...',
+            hintText: 'Search for users or communities',
             border: InputBorder.none,
           ),
           textInputAction: TextInputAction.search,
         ),
       ),
       body: _query.isEmpty
-          ? _buildHistory()
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                child: Container(
+                  padding: const EdgeInsets.all(16.0),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.withOpacity(
+                      0.15,
+                    ),
+                    borderRadius: BorderRadius.circular(8.0),
+                    border: Border.all(color: Colors.amber, width: 1.0),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Icons.warning_rounded,
+                        color: Colors.amber,
+                        size: 24,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'All searches are case-sensitive! \nPlease use exact capitalization to find accurate matches.',
+                          style: Theme.of(context).textTheme.bodySmall!
+                              .copyWith(color: Colors.white),
+                          textAlign: TextAlign.justify,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            )
           : SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -64,39 +97,6 @@ class _SearchPageState extends State<SearchPage> {
     );
   }
 
-  Widget _buildHistory() {
-    if (_history.isEmpty) {
-      return const Center(
-        child: Text('Start typing to search or view past searches here.'),
-      );
-    }
-    return ListView(
-      children: _history.map((item) {
-        return ListTile(
-          title: Text(item),
-          leading: const Icon(Icons.history),
-          trailing: IconButton(
-            icon: const Icon(Icons.clear),
-            onPressed: () {
-              setState(() {
-                _history.remove(item);
-              });
-            },
-          ),
-          onTap: () {
-            setState(() {
-              _controller.text = item;
-              _controller.selection = TextSelection.fromPosition(
-                TextPosition(offset: _controller.text.length),
-              );
-              _query = item;
-            });
-          },
-        );
-      }).toList(),
-    );
-  }
-
   Widget _buildSection(String label, Stream<QuerySnapshot> stream) {
     return StreamBuilder(
       stream: stream,
@@ -106,8 +106,14 @@ class _SearchPageState extends State<SearchPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                child: Text(label, style: Theme.of(context).textTheme.titleMedium),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                child: Text(
+                  label,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
               ),
               const LinearProgressIndicator(),
             ],
@@ -122,47 +128,83 @@ class _SearchPageState extends State<SearchPage> {
         }
 
         final docs = snapshot.data!.docs;
-        if (label == 'Communities' && docs.isEmpty) {
-          return FutureBuilder<DocumentSnapshot>(
-            future: FirebaseFirestore.instance.collection('users').doc(userId).get(),
-            builder: (context, userSnapshot) {
-              if (userSnapshot.connectionState == ConnectionState.waiting) {
+
+        if (label == 'Communities' && docs.isEmpty && _query.isNotEmpty) {
+          return FutureBuilder<QuerySnapshot>(
+            future: FirebaseFirestore.instance.collection('communities').get(),
+            builder: (context, existingActivitySnapshot) {
+              if (existingActivitySnapshot.connectionState ==
+                  ConnectionState.waiting) {
                 return const SizedBox();
               }
-              if (!userSnapshot.hasData || !userSnapshot.data!.exists) {
+
+              final allCommunities = existingActivitySnapshot.data!.docs;
+
+              final hasMatchingActivityType = allCommunities.any((doc) {
+                final activityType = doc['activityType'] as String?;
+                return activityType != null &&
+                    activityType.toLowerCase() == _query.toLowerCase();
+              });
+
+              if (hasMatchingActivityType) {
                 return const SizedBox();
               }
-              final userData = userSnapshot.data!.data() as Map<String, dynamic>;
-              final interests = (userData['interests'] ?? []) as List;
-              if (interests.any((i) => i.toString().toLowerCase() == _query.toLowerCase())) {
-                return Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Seems like there are no communities for "$_query"!',
-                          style: Theme.of(context).textTheme.titleMedium),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Why not be the one to create a space for this community on Issho?',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                      const SizedBox(height: 12),
-                      ElevatedButton.icon(
-                        icon: const Icon(Icons.add_rounded),
-                        label: const Text('Create Community'),
-                        onPressed: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => CreateCommunityPage(userId: userId),
+
+              return FutureBuilder<DocumentSnapshot>(
+                future: FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(userId)
+                    .get(),
+                builder: (context, userSnapshot) {
+                  if (userSnapshot.connectionState == ConnectionState.waiting) {
+                    return const SizedBox();
+                  }
+                  if (!userSnapshot.hasData || !userSnapshot.data!.exists) {
+                    return const SizedBox();
+                  }
+                  final userData =
+                      userSnapshot.data!.data() as Map<String, dynamic>;
+                  final interests = (userData['interests'] ?? []) as List;
+
+                  final lowerCaseInterests = interests
+                      .map((i) => i.toString().toLowerCase())
+                      .toList();
+
+                  if (lowerCaseInterests.contains(_query.toLowerCase())) {
+                    return Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Seems like there are no communities for "$_query"!',
+                            style: Theme.of(context).textTheme.titleMedium,
                           ),
-                        ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Be the first to create a community for this activity on Issho!',
+                            style: Theme.of(context).textTheme.bodySmall,
+                            textAlign: TextAlign.justify,
+                          ),
+                          const SizedBox(height: 12),
+                          AppButton(
+                            icon: Icons.add_circle_outline_rounded,
+                            label: "Create Community",
+                            onPressed: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    CreateCommunityPage(userId: userId),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                );
-              }
-              return const SizedBox();
+                    );
+                  }
+                  return const SizedBox();
+                },
+              );
             },
           );
         }
@@ -176,78 +218,90 @@ class _SearchPageState extends State<SearchPage> {
           children: [
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Text(label, style: Theme.of(context).textTheme.titleMedium),
+              child: Text(
+                label,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
             ),
-            ...docs.map((doc) => ListTile(
-                  //
-                  title: Text(doc['displayName'] ?? doc['name'] ?? 'Unnamed'),
-                  subtitle: Text(
-                    label == 'Users'
-                        ? doc['email'] ?? ''
-                        : label == 'Communities'
-                            ? doc['activityType'] ?? ''
-                            : '',
-                  ),
-                  onTap: () async {
-                    if (!_history.contains(_query) && _query.isNotEmpty) {
-                      setState(() {
-                        _history.insert(0, _query);
-                        if (_history.length > 5) {
-                          _history.removeLast();
-                        }
-                      });
-                    }
+            ...docs.map((doc) {
+              String title;
+              String subtitle;
+              if (label == 'Users') {
+                title = doc['displayName'] ?? 'Unnamed User';
+                subtitle = doc['email'] ?? '';
+              } else {
+                title = doc['name'] ?? 'Unnamed Community';
+                subtitle = doc['activityType'] ?? '';
+              }
 
-                    if (label == 'Users') {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ProfilePage(userId: doc.id),
-                        ),
-                      );
-                    } else if (label == 'Communities') {
-                      final List<dynamic> members = doc['members'] ?? [];
-                      final joined = members.contains(userId);
+              return ListTile(
+                title: Text(title),
+                subtitle: Text(subtitle),
+                onTap: () async {
+                  if (label == 'Users') {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ProfilePage(userId: doc.id),
+                      ),
+                    );
+                  } else if (label == 'Communities') {
+                    final List<dynamic> members = doc['members'] ?? [];
+                    final joined = members.contains(userId);
 
-                      if (!joined) {
-                        final confirm = await showDialog<bool>(
-                              context: context,
-                              builder: (_) => AlertDialog(
-                                title: Text('Join ${doc['name']}?'),
-                                content: const Text('You need to join this community to chat with members.'),
-                                actions: [
-                                  TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-                                  ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text('Join')),
-                                ],
+                    if (!joined) {
+                      final confirm =
+                          await showDialog<bool>(
+                            context: context,
+                            builder: (_) => AlertDialog(
+                              title: Text('Join ${doc['name']}?'),
+                              content: const Text(
+                                'You need to join this community to chat with members.',
                               ),
-                            ) ??
-                            false;
-                        if (!confirm) return;
-
-                        await FirebaseFirestore.instance.collection('communities').doc(doc.id).update({
-                          'members': FieldValue.arrayUnion([userId])
-                        });
-                        if (mounted) {
-                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Joined ${doc['name']}!')),
-                          );
-                        }
-                      }
-                      if (mounted) {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => ChatPage(
-                              communityId: doc.id,
-                              communityName: doc['name'] ?? 'Community',
-                              currentUserId: userId,
+                              actions: [
+                                TextButton(
+                                  onPressed: () =>
+                                      Navigator.pop(context, false),
+                                  child: const Text('Cancel'),
+                                ),
+                                ElevatedButton(
+                                  onPressed: () => Navigator.pop(context, true),
+                                  child: const Text('Join'),
+                                ),
+                              ],
                             ),
-                          ),
+                          ) ??
+                          false;
+                      if (!confirm) return;
+
+                      await FirebaseFirestore.instance
+                          .collection('communities')
+                          .doc(doc.id)
+                          .update({
+                            'members': FieldValue.arrayUnion([userId]),
+                          });
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Joined ${doc['name']}!')),
                         );
                       }
                     }
-                  },
-                )),
+                    if (mounted) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ChatPage(
+                            communityId: doc.id,
+                            communityName: doc['name'] ?? 'Community',
+                            currentUserId: userId,
+                          ),
+                        ),
+                      );
+                    }
+                  }
+                },
+              );
+            }),
           ],
         );
       },
@@ -259,7 +313,7 @@ class _SearchPageState extends State<SearchPage> {
     return FirebaseFirestore.instance
         .collection('users')
         .where('displayName', isGreaterThanOrEqualTo: _query)
-        .where('displayName', isLessThanOrEqualTo: '$_query\uf8ff')
+        .where('displayName', isLessThanOrEqualTo: '${_query}\uf8ff')
         .snapshots();
   }
 
@@ -268,7 +322,7 @@ class _SearchPageState extends State<SearchPage> {
     return FirebaseFirestore.instance
         .collection('communities')
         .where('name', isGreaterThanOrEqualTo: _query)
-        .where('name', isLessThanOrEqualTo: '$_query\uf8ff')
+        .where('name', isLessThanOrEqualTo: '${_query}\uf8ff')
         .snapshots();
   }
 }

@@ -113,7 +113,7 @@ class _CommunitiesPageBodyState extends State<_CommunitiesPageBody> {
           children: const [
             Icon(Icons.search_rounded),
             SizedBox(width: 8),
-            Text("What are you looking for?"),
+            Text("Looking for something?"),
           ],
         ),
       ),
