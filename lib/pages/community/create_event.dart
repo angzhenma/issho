@@ -257,7 +257,7 @@ class _CreateEventPageState extends State<CreateEventPage> {
               const SizedBox(height: 24),
 
               const Text(
-                'Timing & Capacity',
+                'Attendees and Timing',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
               TextFormField(
@@ -292,7 +292,7 @@ class _CreateEventPageState extends State<CreateEventPage> {
               const SizedBox(height: 24),
 
               AppButton(
-                label: 'Create Event',
+                label: 'Post Event',
                 icon: Icons.check_circle_outline_rounded,
                 isExpanded: true,
                 isLoading: _isLoading,
