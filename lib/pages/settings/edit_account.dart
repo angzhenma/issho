@@ -144,6 +144,19 @@ class _EditAccountPageState extends State<EditAccountPage> {
       return;
     }
 
+    final now = DateTime.now();
+    final thirteenYearsAgo = DateTime(now.year - 13, now.month, now.day);
+    if (_selectedDob!.isAfter(thirteenYearsAgo)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('You must be at least 13 years of age to use Issho!'),
+          ),
+        );
+      }
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     try {
@@ -194,32 +207,37 @@ class _EditAccountPageState extends State<EditAccountPage> {
     final data = community.data() as Map<String, dynamic>;
     final admins = List<String>.from(data['admins'] ?? []);
     final members = List<String>.from(data['members'] ?? []);
-    final pros = List<String>.from(data['pros'] ?? []);
     final communityId = community.id;
-
-    // if (admins.length == 1 && admins.first == _user.uid) {
-    //   if (mounted) {
-    //     _showDialog(
-    //       title: 'Hold on!',
-    //       content:
-    //           'You are the only admin in this community. Please assign another admin before leaving or the community will be deleted.',
-    //     );
-    //   }
-    //   return;
-    // }
 
     if (members.length == 1 && members.first == _user.uid) {
       final confirm = await _showConfirmDialog(
-        title: 'Hold on!',
+        title: 'Delete Community?',
         content:
-            'You are the only member in this community. Leaving will delete the community!',
+            'You are the only member in this community. Leaving will delete the community! Are you sure?',
+        confirmButtonText: 'Delete',
       );
       if (confirm) {
         await FirebaseFirestore.instance
             .collection('communities')
             .doc(communityId)
             .delete();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Community "${data['name']}" deleted.')),
+          );
+        }
         _loadUserInfo();
+      }
+      return;
+    }
+
+    if (admins.length == 1 && admins.first == _user.uid && members.length > 1) {
+      if (mounted) {
+        _showDialog(
+          title: 'Cannot Leave',
+          content:
+              'You are the only admin in this community. Please assign another admin before leaving.',
+        );
       }
       return;
     }
@@ -241,28 +259,29 @@ class _EditAccountPageState extends State<EditAccountPage> {
     _loadUserInfo();
   }
 
-  // Future<void> _showDialog({
-  //   required String title,
-  //   required String content,
-  // }) async {
-  //   showDialog(
-  //     context: context,
-  //     builder: (_) => AlertDialog(
-  //       title: Text(title),
-  //       content: Text(content),
-  //       actions: [
-  //         TextButton(
-  //           onPressed: () => Navigator.pop(context),
-  //           child: const Text('OK'),
-  //         ),
-  //       ],
-  //     ),
-  //   );
-  // }
+  Future<void> _showDialog({
+    required String title,
+    required String content,
+  }) async {
+    return await showDialog<void>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(title),
+        content: Text(content),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
 
   Future<bool> _showConfirmDialog({
     required String title,
     required String content,
+    String confirmButtonText = 'Confirm',
   }) async {
     return await showDialog<bool>(
           context: context,
@@ -276,7 +295,7 @@ class _EditAccountPageState extends State<EditAccountPage> {
               ),
               ElevatedButton(
                 onPressed: () => Navigator.pop(context, true),
-                child: const Text('Delete'),
+                child: Text(confirmButtonText),
               ),
             ],
           ),

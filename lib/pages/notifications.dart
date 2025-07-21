@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:issho/models/button.dart';
 
 class NotificationsPage extends StatelessWidget {
   const NotificationsPage({super.key});
@@ -80,8 +81,8 @@ class NotificationsPage extends StatelessWidget {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _markAllAsRead(uid),
-        label: const Text('Mark All as Read'),
-        icon: const Icon(Icons.check_box_rounded),
+        label: const Text('Mark all as read'),
+        icon: const Icon(Icons.check_box_outlined),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
@@ -123,7 +124,9 @@ class _NotificationCard extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Container(
         decoration: BoxDecoration(
-          color: isRead ? theme.colorScheme.surfaceContainer.withOpacity(0.6) : theme.colorScheme.surfaceContainerHigh,
+          color: isRead
+              ? theme.colorScheme.surfaceContainer.withOpacity(0.6)
+              : theme.colorScheme.surfaceContainerHigh,
           borderRadius: BorderRadius.circular(12),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -137,7 +140,9 @@ class _NotificationCard extends StatelessWidget {
                   Text(
                     message,
                     style: theme.textTheme.bodyLarge?.copyWith(
-                      color: theme.colorScheme.onSurface.withOpacity(textOpacity),
+                      color: theme.colorScheme.onSurface.withOpacity(
+                        textOpacity,
+                      ),
                       fontWeight: isRead ? FontWeight.normal : FontWeight.w500,
                     ),
                   ),
@@ -145,7 +150,9 @@ class _NotificationCard extends StatelessWidget {
                   Text(
                     time,
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant.withOpacity(textOpacity),
+                      color: theme.colorScheme.onSurfaceVariant.withOpacity(
+                        textOpacity,
+                      ),
                     ),
                   ),
                 ],
@@ -154,7 +161,9 @@ class _NotificationCard extends StatelessWidget {
             const SizedBox(width: 8),
             IconButton(
               icon: Icon(
-                isRead ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded,
+                isRead
+                    ? Icons.check_box_outlined
+                    : Icons.check_box_outline_blank_rounded,
                 color: isRead
                     ? theme.colorScheme.primary.withOpacity(textOpacity)
                     : theme.colorScheme.onSurfaceVariant,

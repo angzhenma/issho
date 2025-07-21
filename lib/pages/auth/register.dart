@@ -31,7 +31,8 @@ class _RegisterPageState extends State<RegisterPage> {
   final _cityController = TextEditingController();
   final _stateController = TextEditingController();
   final _countryController = TextEditingController();
-  final TextEditingController _interestsTypeAheadController = TextEditingController();
+  final TextEditingController _interestsTypeAheadController =
+      TextEditingController();
   DateTime? _selectedDob;
 
   final List<String> interests = [];
@@ -55,9 +56,11 @@ class _RegisterPageState extends State<RegisterPage> {
     return input
         .trim()
         .split(' ')
-        .map((word) => word.isNotEmpty
-            ? word[0].toUpperCase() + word.substring(1).toLowerCase()
-            : '')
+        .map(
+          (word) => word.isNotEmpty
+              ? word[0].toUpperCase() + word.substring(1).toLowerCase()
+              : '',
+        )
         .join(' ');
   }
 
@@ -104,7 +107,28 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 
   Future<void> _register() async {
-    if (!_formKey.currentState!.validate() || _selectedDob == null) return;
+    if (!_formKey.currentState!.validate() || _selectedDob == null) {
+      if (_selectedDob == null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please select your date of birth.')),
+        );
+      }
+      return;
+    }
+
+    final now = DateTime.now();
+    final eighteenYearsAgo = DateTime(now.year - 13, now.month, now.day);
+    if (_selectedDob!.isAfter(eighteenYearsAgo)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('You must be at least 13 years of age to use Issho!'),
+          ),
+        );
+      }
+      return;
+    }
+
     if (_interestsTypeAheadController.text.trim().isNotEmpty) {
       _addInterest(_interestsTypeAheadController.text.trim());
     }
@@ -114,9 +138,9 @@ class _RegisterPageState extends State<RegisterPage> {
     try {
       final credential = await FirebaseAuth.instance
           .createUserWithEmailAndPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
-      );
+            email: _emailController.text.trim(),
+            password: _passwordController.text.trim(),
+          );
 
       final uid = credential.user!.uid;
       final timestamp = FieldValue.serverTimestamp();
@@ -136,7 +160,9 @@ class _RegisterPageState extends State<RegisterPage> {
             'users': FieldValue.arrayUnion([uid]),
           });
         } else {
-          final newInterestRef = FirebaseFirestore.instance.collection('interests').doc();
+          final newInterestRef = FirebaseFirestore.instance
+              .collection('interests')
+              .doc();
           batch.set(newInterestRef, {
             'activity': lowerCaseInterest,
             'users': [uid],
@@ -182,9 +208,9 @@ class _RegisterPageState extends State<RegisterPage> {
       }
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $message')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $message')));
       }
     } catch (e) {
       if (mounted) {
@@ -215,7 +241,7 @@ class _RegisterPageState extends State<RegisterPage> {
       appBar: AppBar(
         title: const Text('Create Account'),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded),
+          icon: const Icon(Icons.navigate_before_rounded),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -246,16 +272,24 @@ class _RegisterPageState extends State<RegisterPage> {
                   },
                 ),
                 const SizedBox(height: 16),
-                AppTextField(label: 'Full Name', controller: _fullNameController),
+                AppTextField(
+                  label: 'Full Name',
+                  controller: _fullNameController,
+                ),
                 const SizedBox(height: 16),
-                AppTextField(label: 'Display Name', controller: _displayNameController),
+                AppTextField(
+                  label: 'Display Name',
+                  controller: _displayNameController,
+                ),
                 const SizedBox(height: 16),
 
                 ListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: Text(_selectedDob == null
-                      ? 'Select Date of Birth'
-                      : 'DOB: ${DateFormat.yMMMd().format(_selectedDob!)}'),
+                  title: Text(
+                    _selectedDob == null
+                        ? 'Select Date of Birth'
+                        : 'DOB: ${DateFormat.yMMMd().format(_selectedDob!)}',
+                  ),
                   trailing: IconButton(
                     icon: const Icon(Icons.calendar_today_rounded),
                     onPressed: _pickDob,
@@ -277,7 +311,8 @@ class _RegisterPageState extends State<RegisterPage> {
                             prefixIcon: const Icon(Icons.interests_rounded),
                             suffixIcon: IconButton(
                               icon: const Icon(Icons.add_rounded),
-                              onPressed: () => _addInterest(controller.text.trim()),
+                              onPressed: () =>
+                                  _addInterest(controller.text.trim()),
                             ),
                           ),
                           onFieldSubmitted: (value) => _addInterest(value),
@@ -285,21 +320,27 @@ class _RegisterPageState extends State<RegisterPage> {
                       },
                       suggestionsCallback: _getInterestSuggestions,
                       itemBuilder: (context, suggestion) {
-                        return ListTile(
-                          title: Text(suggestion),
-                        );
+                        return ListTile(title: Text(suggestion));
                       },
                       onSelected: (suggestion) {
                         _addInterest(suggestion);
                       },
                       emptyBuilder: (context) {
                         if (_interestsTypeAheadController.text.isNotEmpty &&
-                            !interests.contains(capitalizeEachWord(_interestsTypeAheadController.text.trim()))) {
+                            !interests.contains(
+                              capitalizeEachWord(
+                                _interestsTypeAheadController.text.trim(),
+                              ),
+                            )) {
                           return Padding(
                             padding: const EdgeInsets.all(8.0),
                             child: Text(
                               'No suggestions found. Press + to add "${_interestsTypeAheadController.text.trim()}" as a new interest.',
-                              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                              style: TextStyle(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                              ),
                             ),
                           );
                         }
@@ -325,7 +366,10 @@ class _RegisterPageState extends State<RegisterPage> {
                 const SizedBox(height: 16),
                 AppTextField(label: 'City', controller: _cityController),
                 const SizedBox(height: 16),
-                AppTextField(label: 'State/Province', controller: _stateController),
+                AppTextField(
+                  label: 'State/Province',
+                  controller: _stateController,
+                ),
                 const SizedBox(height: 16),
                 AppTextField(label: 'Country', controller: _countryController),
                 const SizedBox(height: 32),

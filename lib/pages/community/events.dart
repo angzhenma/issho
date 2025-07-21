@@ -165,7 +165,6 @@ class _EventPageState extends State<EventPage> {
                       final currency = entryFeeMap['currency'] as String? ?? '';
                       entryFeeString = '$currency $amount';
                     } else {
-                      // Fallback, though the above logic should cover most cases
                       entryFeeString = 'Free!';
                     }
 
@@ -261,6 +260,23 @@ class _EventPageState extends State<EventPage> {
     final eventData = eventSnapshot.data();
     final title = eventData?['title'] ?? 'Untitled';
     final communityId = widget.communityId;
+    final List currentAttendees = eventData?['attendees'] as List? ?? [];
+    final int maxAttendees = eventData?['maxAttendees'] as int? ?? 999;
+
+    if (going) {
+      if (currentAttendees.length >= maxAttendees) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                "This event's attendee list is full! Check back later to see if a spot opens up.",
+              ),
+            ),
+          );
+        }
+        return;
+      }
+    }
 
     final communityRef = FirebaseFirestore.instance
         .collection('communities')
