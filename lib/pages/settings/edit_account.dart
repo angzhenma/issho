@@ -29,8 +29,10 @@ class _EditAccountPageState extends State<EditAccountPage> {
 
   List<String> _interests = [];
   final _user = FirebaseAuth.instance.currentUser!;
-  bool _isLoading = true;
+  List<String> _initialInterests = [];
   List<DocumentSnapshot> _joinedCommunities = [];
+
+  bool _isLoading = true;
 
   @override
   void initState() {
@@ -105,6 +107,7 @@ class _EditAccountPageState extends State<EditAccountPage> {
   }
 
   Future<void> _loadUserInfo() async {
+    setState(() => _isLoading = true);
     final userDoc = await FirebaseFirestore.instance
         .collection('users')
         .doc(_user.uid)
@@ -121,6 +124,7 @@ class _EditAccountPageState extends State<EditAccountPage> {
         ? (userData['dob'] as Timestamp).toDate()
         : null;
     _interests = List<String>.from(userData['interests'] ?? []);
+    _initialInterests = List<String>.from(userData['interests'] ?? []);
 
     final communities = await FirebaseFirestore.instance
         .collection('communities')
@@ -157,27 +161,83 @@ class _EditAccountPageState extends State<EditAccountPage> {
       return;
     }
 
+    if (_interestsTypeAheadController.text.trim().isNotEmpty) {
+      _addInterest(_interestsTypeAheadController.text.trim());
+    }
+
     setState(() => _isLoading = true);
 
     try {
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(_user.uid)
-          .update({
-            'fullName': _fullNameController.text.trim(),
-            'displayName': _displayNameController.text.trim(),
-            'bio': _bioController.text.trim(),
-            'city': capitalizeEachWord(_cityController.text),
-            'state': capitalizeEachWord(_stateController.text),
-            'country': capitalizeEachWord(_countryController.text),
-            'interests': _interests,
-            'dob': _selectedDob,
-            'updatedAt': FieldValue.serverTimestamp(),
+      final uid = _user.uid;
+      final WriteBatch batch = FirebaseFirestore.instance.batch();
+
+      final addedInterests = _interests
+          .where((interest) => !_initialInterests.contains(interest))
+          .toList();
+      for (final interest in addedInterests) {
+        final lowerCaseInterest = interest.toLowerCase();
+        final existingDocs = await FirebaseFirestore.instance
+            .collection('interests')
+            .where('activity', isEqualTo: lowerCaseInterest)
+            .limit(1)
+            .get();
+
+        if (existingDocs.docs.isNotEmpty) {
+          final docRef = existingDocs.docs.first.reference;
+          batch.update(docRef, {
+            'users': FieldValue.arrayUnion([uid]),
           });
+        } else {
+          final newInterestRef = FirebaseFirestore.instance
+              .collection('interests')
+              .doc();
+          batch.set(newInterestRef, {
+            'activity': lowerCaseInterest,
+            'users': [uid],
+          });
+        }
+      }
+
+      final removedInterests = _initialInterests
+          .where((interest) => !_interests.contains(interest))
+          .toList();
+      for (final interest in removedInterests) {
+        final lowerCaseInterest = interest.toLowerCase();
+        final existingDocs = await FirebaseFirestore.instance
+            .collection('interests')
+            .where('activity', isEqualTo: lowerCaseInterest)
+            .limit(1)
+            .get();
+
+        if (existingDocs.docs.isNotEmpty) {
+          final docRef = existingDocs.docs.first.reference;
+          batch.update(docRef, {
+            'users': FieldValue.arrayRemove([uid]),
+          });
+        }
+      }
+
+      batch.update(FirebaseFirestore.instance.collection('users').doc(uid), {
+        'fullName': _fullNameController.text.trim(),
+        'displayName': _displayNameController.text.trim(),
+        'bio': _bioController.text.trim(),
+        'city': capitalizeEachWord(_cityController.text),
+        'state': capitalizeEachWord(_stateController.text),
+        'country': capitalizeEachWord(_countryController.text),
+        'interests':
+            _interests,
+        'dob': _selectedDob,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      await batch.commit();
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Profile updated successfully!')),
+        );
+        Navigator.pop(
+          context,
         );
       }
     } catch (e) {
