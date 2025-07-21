@@ -224,7 +224,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   }),
 
                   const SizedBox(height: 24),
-                  Text("Attended Events", style: theme.textTheme.titleMedium),
+                  Text("Events Joined", style: theme.textTheme.titleMedium),
                   const SizedBox(height: 12),
                   if (participatedEvents.isEmpty)
                     Text(
