@@ -75,7 +75,7 @@ class _MemberListPageState extends State<MemberListPage> {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Change Member Role'),
+        title: const Text('Manage Member'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -126,6 +126,24 @@ class _MemberListPageState extends State<MemberListPage> {
                 setState(() {
                   widget.proIds.clear();
                   widget.proIds.addAll(updatedPros);
+                });
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.person_off_rounded, color: Colors.redAccent),
+              title: Text('Remove member'),
+              onTap: () async {
+                final updatedMembers = List<String>.from(widget.memberIds);
+                updatedMembers.remove(uid);
+                await FirebaseFirestore.instance
+                    .collection('communities')
+                    .doc(widget.communityId)
+                    .update({'members': updatedMembers});
+                Navigator.pop(context);
+                Fluttertoast.showToast(msg: 'Member Removed!');
+                setState(() {
+                  widget.memberIds.clear();
+                  widget.memberIds.addAll(updatedMembers);
                 });
               },
             ),
