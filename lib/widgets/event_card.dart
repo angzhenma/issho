@@ -36,7 +36,12 @@ class EventCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final String formattedDateTime = DateFormat('MMM dd, yyyy - hh:mm a').format(datetime); 
+    final String formattedDateTime = DateFormat(
+      'MMM dd, yyyy - hh:mm a',
+    ).format(datetime);
+    final bool isEventInFuture =
+        datetime.isAfter(DateTime.now()) ||
+        datetime.isAtSameMomentAs(DateTime.now());
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8),
@@ -56,12 +61,17 @@ class EventCard extends StatelessWidget {
                   Expanded(
                     child: Text(
                       title,
-                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                   if (onDelete != null)
                     IconButton(
-                      icon: Icon(Icons.delete_rounded, color: theme.colorScheme.error),
+                      icon: Icon(
+                        Icons.delete_rounded,
+                        color: theme.colorScheme.error,
+                      ),
                       onPressed: onDelete,
                       tooltip: 'Delete Event',
                     ),
@@ -77,19 +87,31 @@ class EventCard extends StatelessWidget {
               const SizedBox(height: 8),
               Row(
                 children: [
-                  Icon(Icons.access_time_rounded, size: 16, color: theme.colorScheme.onSurfaceVariant),
+                  Icon(
+                    Icons.access_time_rounded,
+                    size: 16,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                   const SizedBox(width: 4),
                   Text(
                     formattedDateTime,
-                    style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                   ),
                   const SizedBox(width: 12),
-                  Icon(Icons.location_on_rounded, size: 16, color: theme.colorScheme.onSurfaceVariant),
+                  Icon(
+                    Icons.location_on_rounded,
+                    size: 16,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                   const SizedBox(width: 4),
                   Expanded(
                     child: Text(
                       venue,
-                      style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -101,33 +123,40 @@ class EventCard extends StatelessWidget {
                 children: [
                   Text(
                     entryFee,
-                    style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                  Row(
-                    children: [
-                      Icon(Icons.people_rounded, size: 18, color: theme.colorScheme.onSurfaceVariant),
-                      const SizedBox(width: 4),
-                      Text(
-                        '$attendeeCount${maxAttendees > 0 ? ' / $maxAttendees' : ''} going',
-                        style: theme.textTheme.bodyMedium,
-                      ),
-                      const SizedBox(width: 8),
-                      ElevatedButton(
-                        onPressed: isUserGoing ? onUnjoin : onJoin,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: isUserGoing
-                              ? theme.colorScheme.tertiaryContainer
-                              : theme.colorScheme.primary,
-                          foregroundColor: isUserGoing
-                              ? theme.colorScheme.onTertiaryContainer
-                              : theme.colorScheme.onPrimary,
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          minimumSize: const Size(80, 36),
+                  if (isEventInFuture)
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.people_rounded,
+                          size: 18,
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
-                        child: Text(isUserGoing ? "I'm out" : "I'm in"),
-                      ),
-                    ],
-                  ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '$attendeeCount${maxAttendees > 0 ? ' / $maxAttendees' : ''} going',
+                          style: theme.textTheme.bodyMedium,
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          onPressed: isUserGoing ? onUnjoin : onJoin,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: isUserGoing
+                                ? theme.colorScheme.tertiaryContainer
+                                : theme.colorScheme.primary,
+                            foregroundColor: isUserGoing
+                                ? theme.colorScheme.onTertiaryContainer
+                                : theme.colorScheme.onPrimary,
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            minimumSize: const Size(80, 36),
+                          ),
+                          child: Text(isUserGoing ? "I'm out" : "I'm in"),
+                        ),
+                      ],
+                    ),
                 ],
               ),
             ],

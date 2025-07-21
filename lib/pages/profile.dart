@@ -124,7 +124,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   Row(
                     children: [
                       Text(
-                        userData!['displayName'] ?? 'Unnamed',
+                        '@${userData?['displayName'] ?? 'Unnamed'}',
                         style: theme.textTheme.headlineSmall?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
