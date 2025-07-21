@@ -9,22 +9,22 @@ import 'package:issho/models/button.dart';
 class NotificationsPage extends StatelessWidget {
   const NotificationsPage({super.key});
 
-  Future<void> _markAllAsRead(String uid) async {
-    final notificationsRef = FirebaseFirestore.instance
-        .collection('users')
-        .doc(uid)
-        .collection('notifications');
+  // Future<void> _markAllAsRead(String uid) async {
+  //   final notificationsRef = FirebaseFirestore.instance
+  //       .collection('users')
+  //       .doc(uid)
+  //       .collection('notifications');
 
-    final unreadNotifications = await notificationsRef
-        .where('isRead', isEqualTo: false)
-        .get();
+  //   final unreadNotifications = await notificationsRef
+  //       .where('isRead', isEqualTo: false)
+  //       .get();
 
-    final batch = FirebaseFirestore.instance.batch();
-    for (var doc in unreadNotifications.docs) {
-      batch.update(doc.reference, {'isRead': true});
-    }
-    await batch.commit();
-  }
+  //   final batch = FirebaseFirestore.instance.batch();
+  //   for (var doc in unreadNotifications.docs) {
+  //     batch.update(doc.reference, {'isRead': true});
+  //   }
+  //   await batch.commit();
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -79,12 +79,12 @@ class NotificationsPage extends StatelessWidget {
           );
         },
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _markAllAsRead(uid),
-        label: const Text('Mark all as read'),
-        icon: const Icon(Icons.check_box_outlined),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      // floatingActionButton: FloatingActionButton.extended(
+      //   onPressed: () => _markAllAsRead(uid),
+      //   label: const Text('Mark all as read'),
+      //   icon: const Icon(Icons.check_box_outlined),
+      // ),
+      // floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 }
