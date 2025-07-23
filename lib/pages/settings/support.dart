@@ -10,6 +10,7 @@ class SupportPage extends StatelessWidget {
   Future<void> _openSupportForm() async {
     final Uri url = Uri.parse(_supportFormUrl);
     if (await canLaunchUrl(url)) {
+      debugPrint('Launched $_supportFormUrl');
       await launchUrl(url, mode: LaunchMode.externalApplication);
     } else {
       debugPrint('Could not launch $_supportFormUrl');
