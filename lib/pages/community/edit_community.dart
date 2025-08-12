@@ -65,7 +65,7 @@ class _EditCommunityPageState extends State<EditCommunityPage> {
             .doc(widget.communityId)
             .update({
               'name': _nameController.text.trim(),
-              'activity': _activityController.text.trim(),
+              'activityType': _activityController.text.trim(),
               'location.state': _stateController.text.trim(),
               'location.country': _countryController.text.trim(),
               'location.city': _cityController.text.trim(),

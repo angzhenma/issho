@@ -1,10 +1,10 @@
-// ignore_for_file: use_build_context_synchronously
+// ignore_for_file: use_build_context_synchronously, deprecated_member_use
 
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:issho/pages/auth/register.dart';
 import 'package:issho/models/button.dart';
-import 'package:issho/models/text_field.dart'; 
+import 'package:issho/models/text_field.dart';
 
 // Programmer Name: Mr. Ibrahim Azaan Mauroof
 // Program Name: pages/auth/login.dart
@@ -62,15 +62,15 @@ class _LoginPageState extends State<LoginPage> {
       }
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Login failed: $message')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Login failed: $message')));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Login error: ${e.toString()}')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Login error: ${e.toString()}')));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -103,18 +103,35 @@ class _LoginPageState extends State<LoginPage> {
             onPressed: () async {
               Navigator.pop(context);
               try {
-                await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+                final methods = await FirebaseAuth.instance
+                    .fetchSignInMethodsForEmail(email);
+                if (methods.isEmpty) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('No account found with this email.'),
+                      ),
+                    );
+                  }
+                  return;
+                }
+
+                await FirebaseAuth.instance.sendPasswordResetEmail(
+                  email: email,
+                );
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Reset email sent!')),
                   );
                 }
               } on FirebaseAuthException catch (e) {
-                 if (mounted) {
+                if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error sending reset email: ${e.message}')),
+                    SnackBar(
+                      content: Text('Error sending reset email: ${e.message}'),
+                    ),
                   );
-                 }
+                }
               } catch (e) {
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -160,16 +177,18 @@ class _LoginPageState extends State<LoginPage> {
                   label: 'Email',
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
-                  validator: (val) =>
-                      val == null || val.trim().isEmpty ? 'Email is required' : null,
+                  validator: (val) => val == null || val.trim().isEmpty
+                      ? 'Email is required'
+                      : null,
                 ),
                 const SizedBox(height: 16),
                 AppTextField(
                   label: 'Password',
                   controller: _passwordController,
                   obscureText: true,
-                  validator: (val) =>
-                      val == null || val.trim().isEmpty ? 'Password is required' : null,
+                  validator: (val) => val == null || val.trim().isEmpty
+                      ? 'Password is required'
+                      : null,
                 ),
                 const SizedBox(height: 24),
                 AppButton(
@@ -197,7 +216,9 @@ class _LoginPageState extends State<LoginPage> {
                       onPressed: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (_) => const RegisterPage()),
+                          MaterialPageRoute(
+                            builder: (_) => const RegisterPage(),
+                          ),
                         );
                       },
                       child: const Text('Register here!'),

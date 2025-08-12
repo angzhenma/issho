@@ -104,10 +104,13 @@ class _ProfilePageState extends State<ProfilePage> {
           if (widget.userId == currentUserId)
             IconButton(
               icon: const Icon(Icons.edit_note_rounded),
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const EditAccountPage()),
-              ),
+              onPressed: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const EditAccountPage()),
+                );
+                _fetchUserData();
+              },
             ),
         ],
       ),
@@ -120,7 +123,6 @@ class _ProfilePageState extends State<ProfilePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-
                   Row(
                     children: [
                       Text(
