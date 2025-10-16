@@ -49,3 +49,6 @@ app.*.map.json
 *.apk
 *.ap_
 *.aab
+
+# Firebase related
+lib/firebase_options.dart
