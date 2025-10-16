@@ -44,3 +44,8 @@ android/app/debug
 android/app/profile
 android/app/release
 android/app/build
+
+# Built application files
+*.apk
+*.ap_
+*.aab
