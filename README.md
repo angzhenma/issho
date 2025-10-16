@@ -1,4 +1,4 @@
-# Issho - Flutter Project
+# Issho - Final Year Project
 
 - Issho is a Flutter-based mobile application developed by Ibrahim Azaan Mauroof (TP070788) from intake APD3F2411SE (Software Engineering) to facilitate and encourage more physical events and make meaningful and productive social connections.
 
