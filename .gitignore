@@ -51,4 +51,4 @@ app.*.map.json
 *.aab
 
 # Firebase related
-lib/firebase_options.dart
+**/lib/firebase_options.dart
